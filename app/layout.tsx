@@ -4,6 +4,7 @@ import "./globals.css";
 import { UserProvider } from "@auth0/nextjs-auth0/client";
 import Navbar from "@/components/navbar";
 import { StoreProvider } from "./StoreProvider";
+import { Providers } from "./providers";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -32,12 +33,10 @@ export default function RootLayout({
       <body
         className={`mx-auto min-h-screen justify-center w-full ${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <StoreProvider>
-          <UserProvider>
-            <Navbar />
-            <div className="p-8">{children}</div>
-          </UserProvider>
-        </StoreProvider>
+        <Providers>
+              <Navbar />
+              <div className="p-8">{children}</div>
+        </Providers>
       </body>
     </html>
   );

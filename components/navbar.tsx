@@ -5,6 +5,7 @@ import React from "react";
 import { LoginButton } from "./login-button";
 import { SignupButton } from "./signup-button";
 import { LogoutButton } from "./logout-button";
+import { ThemeToggle } from "./theme/ThemeToggle";
 
 const Navbar = () => {
   const { user, error, isLoading } = useUser();
@@ -40,6 +41,7 @@ const Navbar = () => {
           </>
         )}
       </div>
+      <ThemeToggle />
     </div>
   );
 };

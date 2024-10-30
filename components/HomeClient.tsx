@@ -1,39 +1,23 @@
-'use client';
+"use client";
 
-import { useDispatch, useSelector } from "react-redux";
-import type { RootState } from "@/store/store";
-import { decrement, increment } from "@/store/slice";
+import LandingPage from "../components/Screens/LandingPage";
 
-export default function HomeClient({ user }: { user: any }) {
-  const count = useSelector((state: RootState) => state.counter.value);
-  const dispatch = useDispatch();
+interface HomeClientProps {
+  user?: any;
+}
+
+const HomeClient: React.FC<HomeClientProps> = ({ user }) => {
+  if (!user) {
+    return <LandingPage />;
+  }
 
   return (
     <div className="flex justify-center items-center">
       <div>
-        <div className="flex gap-4 items-center">
-          <button
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            aria-label="Increment value"
-            onClick={() => dispatch(increment())}
-          >
-            Increment
-          </button>
-          <span className="text-2xl font-bold">{count}</span>
-          <button
-            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-            aria-label="Decrement value"
-            onClick={() => dispatch(decrement())}
-          >
-            Decrement
-          </button>
-        </div>
-        {user && (
-          <div className="mt-4">
-            <p>Welcome, {user.name}!</p>
-          </div>
-        )}
+        <h1>Welcome, {user.name}!</h1>
       </div>
     </div>
   );
-}
+};
+
+export default HomeClient;

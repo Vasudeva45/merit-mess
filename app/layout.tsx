@@ -1,9 +1,9 @@
-import type { Metadata } from "next";
+"use client";
+
 import localFont from "next/font/local";
 import "./globals.css";
-import { UserProvider } from "@auth0/nextjs-auth0/client";
+import { useUser } from "@auth0/nextjs-auth0/client";
 import Navbar from "@/components/navbar";
-import { StoreProvider } from "./StoreProvider";
 import { Providers } from "./providers";
 
 const geistSans = localFont({
@@ -18,24 +18,29 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
-export const metadata: Metadata = {
-  title: "Project Launch",
-  description: "A collaborative platform for youth initiatives",
+// Separate component to handle user state checks
+const LayoutContent = ({ children }: { children: React.ReactNode }) => {
+  const { user, isLoading } = useUser();
+
+  return (
+    <div className={`mx-auto min-h-screen justify-center w-full ${geistSans.variable} ${geistMono.variable} antialiased`}>
+      {/* Only show Navbar if user is logged in */}
+      {user && !isLoading && <Navbar />}
+      <div className={`${user ? 'p-8' : 'p-0'}`}>{children}</div>
+    </div>
+  );
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="en">
-      <body
-        className={`mx-auto min-h-screen justify-center w-full ${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body>
         <Providers>
-              <Navbar />
-              <div className="p-8">{children}</div>
+          <LayoutContent>{children}</LayoutContent>
         </Providers>
       </body>
     </html>

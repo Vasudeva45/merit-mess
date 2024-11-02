@@ -33,11 +33,12 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { StatsCards } from "@/app/project/new/page";
 
 const NavLink = ({ href, children, className }) => {
   const pathname = usePathname();
   const isActive = pathname === href;
-  
+
   return (
     <Link
       href={href}
@@ -80,14 +81,19 @@ const Navbar = () => {
         {/* Logo and Brand */}
         <Link href="/dashboard" className="flex items-center gap-2 mr-8">
           <Rocket className="h-6 w-6 text-primary" />
-          <span className="font-bold text-lg hidden md:inline-block">MeritMess</span>
+          <span className="font-bold text-lg hidden md:inline-block">
+            MeritMess
+          </span>
         </Link>
 
         {/* Main Navigation - Desktop */}
         <NavigationMenu className="hidden md:flex">
-          <NavigationMenuList className="flex gap-2">
+          <NavigationMenuList className="">
             <NavigationMenuItem>
-              <NavLink href="/project/new">
+              <NavLink
+                href="/project/new"
+                fallback={<StatsCards loading={true} data={null} />}
+              >
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Start Project
               </NavLink>
@@ -158,15 +164,20 @@ const Navbar = () => {
           {user && !isLoading && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                <Button
+                  variant="ghost"
+                  className="relative h-9 w-9 rounded-full"
+                >
                   <UserCircle className="h-6 w-6" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <div className="flex items-center justify-start gap-2 p-2">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium">{user.name || 'User'}</p>
-                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                    <p className="text-sm font-medium">{user.name || "User"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {user.email}
+                    </p>
                   </div>
                 </div>
                 <DropdownMenuSeparator />
@@ -189,7 +200,7 @@ const Navbar = () => {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          
+
           <ThemeToggle />
         </div>
       </div>

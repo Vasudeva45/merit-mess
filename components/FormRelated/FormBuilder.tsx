@@ -76,7 +76,7 @@ function FormBuilder({ form }: Readonly<{ form: Form }>) {
             </h1>
             <h2 className="text-2xl">Share this form</h2>
             <h3 className="text-xl to-muted-foreground border-b pb-10">
-              Anyonw with the link can view and submit the form
+              Anyone with the link can view and submit the form
             </h3>
             <div className="my-4 flex flex-col gap-2 items-center w-full border-b pb-4">
               <Input className="w-full" readOnly value={shareUrl} />
@@ -114,10 +114,25 @@ function FormBuilder({ form }: Readonly<{ form: Form }>) {
     <DndContext sensors={sensors}>
       <main className="flex flex-col w-full min-h-screen">
         <nav className="flex justify-between border-b-2 p-4 gap-3 items-center">
-          <h2 className="truncate font-medium">
-            <span className="text-muted-foreground mr-2">Form:</span>
-            {form.name}
-          </h2>
+          <div className="flex flex-col">
+            <h2 className="truncate font-medium">
+              <span className="text-muted-foreground mr-2">Form:</span>
+              {form.name}
+            </h2>
+            <div className="flex gap-4 text-sm text-muted-foreground">
+              {form.domain && (
+                <span>
+                  <span className="font-medium">Domain:</span> {form.domain}
+                </span>
+              )}
+              {form.specialization && (
+                <span>
+                  <span className="font-medium">Specialization:</span>{" "}
+                  {form.specialization}
+                </span>
+              )}
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <PreviousDialogBtn />
             {!form.published && (

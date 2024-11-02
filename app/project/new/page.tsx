@@ -210,17 +210,33 @@ function FormCard({ form }: Readonly<{ form: Form }>) {
           {form.published && <Badge>Published</Badge>}
           {!form.published && <Badge variant={"destructive"}>Draft</Badge>}
         </CardTitle>
-        <CardDescription className="flex items-center justify-between text-muted-foreground text-sm">
-          {formatDistance(form.createdAt, new Date(), {
-            addSuffix: true,
-          })}
-          {form.published && (
-            <span className="flex items-center gap-2">
-              <LuView className="text-muted-foreground" />
-              <span>{form.visits.toLocaleString()}</span>
-              <FaWpforms className="text-muted-foreground" />
-              <span>{form.submissions.toLocaleString()}</span>
-            </span>
+        <CardDescription className="flex flex-col gap-2">
+          <div className="flex items-center justify-between text-muted-foreground text-sm">
+            {formatDistance(form.createdAt, new Date(), {
+              addSuffix: true,
+            })}
+            {form.published && (
+              <span className="flex items-center gap-2">
+                <LuView className="text-muted-foreground" />
+                <span>{form.visits.toLocaleString()}</span>
+                <FaWpforms className="text-muted-foreground" />
+                <span>{form.submissions.toLocaleString()}</span>
+              </span>
+            )}
+          </div>
+          {(form.domain || form.specialization) && (
+            <div className="flex flex-wrap gap-2 text-xs">
+              {form.domain && (
+                <Badge variant="outline" className="text-xs">
+                  {form.domain}
+                </Badge>
+              )}
+              {form.specialization && (
+                <Badge variant="outline" className="text-xs">
+                  {form.specialization}
+                </Badge>
+              )}
+            </div>
           )}
         </CardDescription>
       </CardHeader>

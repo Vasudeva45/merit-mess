@@ -48,8 +48,26 @@ async function BuilderPage({
         <div className="container max-w-7xl mx-auto px-4">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="space-y-2">
-              <h1 className="text-4xl font-bold tracking-tight">{form.name}</h1>
-              <p className="text-muted-foreground">Form Dashboard</p>
+              <div className="flex flex-col gap-2">
+                <h1 className="text-4xl font-bold tracking-tight">
+                  {form.name}
+                </h1>
+                <div className="flex flex-wrap gap-2">
+                  {form.domain && (
+                    <Badge variant="outline" className="text-sm">
+                      Domain: {form.domain}
+                    </Badge>
+                  )}
+                  {form.specialization && (
+                    <Badge variant="outline" className="text-sm">
+                      Specialization: {form.specialization}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <p className="text-muted-foreground">
+                {form.description || "Form Dashboard"}
+              </p>
             </div>
             <div className="flex items-center gap-4">
               <FormLinkShare shareURL={form.shareURL} />

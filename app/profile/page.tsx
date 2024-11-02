@@ -25,25 +25,6 @@ const Profile = async () => {
 
         <Separator />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start justify-center">
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-center">
-              Client Component
-            </h2>
-            <div className="flex justify-center">
-              <ProfileClient user={user} />
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-center">
-              Server Component
-            </h2>
-            <div className="flex justify-center">
-              <ProfileServer user={user} />
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

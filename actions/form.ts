@@ -58,13 +58,15 @@ export async function CreateForm(data: formschemaType) {
       throw new UserNotFoundErr();
     }
 
-    const { name, description } = data;
+    const { name, description, domain, specialization } = data;
 
     const form = await prisma.form.create({
       data: {
         userId: user.sub,
         name,
-        description,
+        description: description ?? "",
+        domain: domain ?? "",
+        specialization: specialization ?? "",
       },
     });
 
@@ -78,7 +80,6 @@ export async function CreateForm(data: formschemaType) {
     throw error;
   }
 }
-
 export async function GetForms() {
   const session = await getSession();
   const user = session?.user;
@@ -155,40 +156,39 @@ export async function PublishForm(id: number) {
   });
 }
 
-
-export async function GetFormContentByUrl(formUrl: string){
+export async function GetFormContentByUrl(formUrl: string) {
   return await prisma.form.update({
     select: {
       content: true,
     },
     data: {
       visits: {
-        increment: 1
-      }
+        increment: 1,
+      },
     },
     where: {
-      shareURL: formUrl
-    }
-  })
+      shareURL: formUrl,
+    },
+  });
 }
 
 export async function SubmitForm(formUrl: string, content: string) {
   return await prisma.form.update({
     data: {
       submissions: {
-        increment: 1
+        increment: 1,
       },
       FormSubmissions: {
         create: {
-          content
-        }
-      }
+          content,
+        },
+      },
     },
     where: {
       shareURL: formUrl,
-      published: true
-    }
-  })
+      published: true,
+    },
+  });
 }
 
 export async function GetFormWithSubmissions(id: number) {
@@ -200,13 +200,13 @@ export async function GetFormWithSubmissions(id: number) {
     throw new UserNotFoundErr();
   }
 
-  return await prisma.form.findUnique( {
+  return await prisma.form.findUnique({
     where: {
       userId: user.sub,
-      id
+      id,
     },
     include: {
       FormSubmissions: true,
-    }
-  })
+    },
+  });
 }

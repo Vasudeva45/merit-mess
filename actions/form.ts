@@ -210,3 +210,22 @@ export async function GetFormWithSubmissions(id: number) {
     },
   });
 }
+
+export async function getPublicForms() {
+  "use server";
+  const forms = await prisma.form.findMany({
+    where: { published: true },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      domain: true,
+      specialization: true,
+      visits: true,
+      createdAt: true,
+      shareURL: true,
+    },
+  });
+  return forms;
+}

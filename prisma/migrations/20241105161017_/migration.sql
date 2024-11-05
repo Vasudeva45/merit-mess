@@ -2,6 +2,7 @@
 CREATE TABLE "Form" (
     "id" SERIAL NOT NULL,
     "userId" TEXT NOT NULL,
+    "uid" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "published" BOOLEAN NOT NULL DEFAULT false,
     "name" TEXT NOT NULL,
@@ -52,6 +53,7 @@ CREATE TABLE "Profile" (
 -- CreateTable
 CREATE TABLE "ProjectGroup" (
     "id" SERIAL NOT NULL,
+    "uid" TEXT NOT NULL,
     "formId" INTEGER NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
@@ -75,6 +77,9 @@ CREATE TABLE "GroupMember" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Form_uid_key" ON "Form"("uid");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Form_shareURL_key" ON "Form"("shareURL");
 
 -- CreateIndex
@@ -82,6 +87,9 @@ CREATE UNIQUE INDEX "Form_name_userId_key" ON "Form"("name", "userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Profile_userId_key" ON "Profile"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ProjectGroup_uid_key" ON "ProjectGroup"("uid");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ProjectGroup_formId_key" ON "ProjectGroup"("formId");
@@ -97,3 +105,6 @@ ALTER TABLE "ProjectGroup" ADD CONSTRAINT "ProjectGroup_formId_fkey" FOREIGN KEY
 
 -- AddForeignKey
 ALTER TABLE "GroupMember" ADD CONSTRAINT "GroupMember_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "ProjectGroup"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "GroupMember" ADD CONSTRAINT "GroupMember_userId_fkey" FOREIGN KEY ("userId") REFERENCES "Profile"("userId") ON DELETE RESTRICT ON UPDATE CASCADE;

@@ -11,6 +11,7 @@ datasource db {
 model Form {
   id              Int               @id @default(autoincrement())
   userId          String
+  uid             String            @unique 
   createdAt       DateTime          @default(now())
   published       Boolean           @default(false)
   name            String
@@ -55,6 +56,7 @@ model Profile {
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   submissions     FormSubmissions[]
+  groupMembers    GroupMember[]     @relation("ProfileToGroupMember")
 }
 
 model ProjectGroup {
@@ -71,11 +73,12 @@ model ProjectGroup {
 }
 
 model GroupMember {
-  id            Int         @id @default(autoincrement())
-  groupId       Int
-  userId        String      // From form submission
-  role          String      @default("member") // Could be 'owner', 'member', etc.
-  joinedAt      DateTime    @default(now())
-  status        String      @default("pending") // pending, accepted, rejected
-  group         ProjectGroup @relation(fields: [groupId], references: [id])
+  id      Int        @id @default(autoincrement())
+  groupId Int
+  userId  String
+  role    String     @default("member")
+  joinedAt DateTime  @default(now())
+  status  String     @default("pending")
+  group   ProjectGroup @relation(fields: [groupId], references: [id])
+  profile Profile   @relation(fields: [userId], references: [userId], name: "ProfileToGroupMember")
 }

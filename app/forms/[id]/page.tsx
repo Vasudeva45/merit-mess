@@ -1,5 +1,6 @@
 import React from "react";
 import { GetFormById, GetFormWithSubmissions } from "@/actions/form";
+import { getFormSubmissionsWithProfiles } from "@/actions/group";
 import { StatsCard } from "@/app/project/new/page";
 import {
   ElementsType,
@@ -7,6 +8,12 @@ import {
 } from "@/components/FormRelated/FormElements";
 import FormLinkShare from "@/components/FormRelated/FormLinkShare";
 import VisitBtn from "@/components/FormRelated/VisitBtn";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -18,12 +25,13 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format, formatDistance } from "date-fns";
 import { ReactNode } from "react";
-import { FaWpforms } from "react-icons/fa";
+import { FaWpforms, FaUsers } from "react-icons/fa";
 import { HiCursorClick } from "react-icons/hi";
 import { LuView } from "react-icons/lu";
 import { TbArrowBounce } from "react-icons/tb";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import SubmissionGroupManager from "@/components/groupRelated/SubmissionGroupManager";
 
 async function BuilderPage({
   params,
@@ -42,8 +50,12 @@ async function BuilderPage({
   let submissionRate = visits > 0 ? (submissions / visits) * 100 : 0;
   const bouncedRate = 100 - submissionRate;
 
+  // Fetch submissions with profile data for group management
+  const submissionsWithProfiles = await getFormSubmissionsWithProfiles(Number(id));
+
   return (
     <div className="min-h-screen bg-background">
+      {/* Header section remains the same */}
       <div className="py-8 border-b border-muted bg-card">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -78,6 +90,7 @@ async function BuilderPage({
       </div>
 
       <div className="container max-w-7xl mx-auto px-4 py-8">
+        {/* Stats cards section remains the same */}
         <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
           <StatsCard
             title="Total visits"
@@ -113,22 +126,40 @@ async function BuilderPage({
           />
         </div>
 
-        <Card className="mt-8">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div className="space-y-1.5">
-              <CardTitle className="flex items-center gap-2">
-                <FaWpforms className="w-5 h-5" />
-                Recent Submissions
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                View and manage your latest form responses
-              </p>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <SubmissionsTable id={form.id} />
-          </CardContent>
-        </Card>
+        {/* New tabbed interface for submissions and groups */}
+        <Tabs defaultValue="submissions" className="mt-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div className="space-y-1.5">
+                <CardTitle>Submissions & Groups</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Manage form responses and create project groups
+                </p>
+              </div>
+              <TabsList>
+                <TabsTrigger value="submissions" className="flex items-center gap-2">
+                  <FaWpforms className="w-4 h-4" />
+                  Submissions
+                </TabsTrigger>
+                <TabsTrigger value="groups" className="flex items-center gap-2">
+                  <FaUsers className="w-4 h-4" />
+                  Groups
+                </TabsTrigger>
+              </TabsList>
+            </CardHeader>
+            <CardContent>
+              <TabsContent value="submissions">
+                <SubmissionsTable id={Number(id)} />
+              </TabsContent>
+              <TabsContent value="groups">
+                <SubmissionGroupManager 
+                  formId={Number(id)} 
+                  submissions={submissionsWithProfiles} 
+                />
+              </TabsContent>
+            </CardContent>
+          </Card>
+        </Tabs>
       </div>
     </div>
   );

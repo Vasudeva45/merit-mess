@@ -22,6 +22,7 @@ model Form {
   domain          String            @default("")
   specialization  String            @default("")
   FormSubmissions FormSubmissions[]
+  projectGroup ProjectGroup?
 
   @@unique([name, userId])
 }
@@ -33,23 +34,48 @@ model FormSubmissions {
   content   String
   userId    String
   form      Form     @relation(fields: [formId], references: [id])
+  profile   Profile? @relation(fields: [userId], references: [userId])
 }
 
 model Profile {
-  id              Int       @id @default(autoincrement())
-  userId          String    @unique
+  id              Int               @id @default(autoincrement())
+  userId          String            @unique
   name            String
-  type            String    @default("student")
+  type            String            @default("student")
   title           String?
-  bio             String?   @db.Text
+  bio             String?           @db.Text
   location        String?
   email           String?
   github          String?
   linkedin        String?
   organization    String?
-  skills          String[]  @default([])
-  achievements    String[]  @default([])
-  ongoing_projects Json[]   @default([])
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  skills          String[]          @default([])
+  achievements    String[]          @default([])
+  ongoing_projects Json[]           @default([])
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  submissions     FormSubmissions[]
+}
+
+model ProjectGroup {
+  id          Int       @id @default(autoincrement())
+  uid         String        @unique // Add this line
+  formId      Int       @unique  // One group per form/project
+  name        String
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  ownerId     String    // User ID of the project creator
+  members     GroupMember[]
+  form        Form      @relation(fields: [formId], references: [id])
+}
+
+model GroupMember {
+  id            Int         @id @default(autoincrement())
+  groupId       Int
+  userId        String      // From form submission
+  role          String      @default("member") // Could be 'owner', 'member', etc.
+  joinedAt      DateTime    @default(now())
+  status        String      @default("pending") // pending, accepted, rejected
+  group         ProjectGroup @relation(fields: [groupId], references: [id])
 }

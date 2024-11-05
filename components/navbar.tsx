@@ -119,6 +119,13 @@ const Navbar = () => {
                 Achievements
               </NavLink>
             </NavigationMenuItem>
+
+            <NavigationMenuItem>
+              <NavLink href="/project-invites">
+                <Users className="mr-2 h-4 w-4" />
+                Projects
+              </NavLink>
+            </NavigationMenuItem>
           </NavigationMenuList>
         </NavigationMenu>
 
@@ -153,6 +160,12 @@ const Navbar = () => {
                 <Link href="/achievements" className="flex items-center">
                   <Trophy className="mr-2 h-4 w-4" />
                   Achievements
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/project-invites" className="flex items-center">
+                  <Users className="mr-2 h-4 w-4" />
+                  Projects
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>

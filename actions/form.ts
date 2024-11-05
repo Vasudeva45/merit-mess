@@ -173,6 +173,13 @@ export async function GetFormContentByUrl(formUrl: string) {
 }
 
 export async function SubmitForm(formUrl: string, content: string) {
+  const session = await getSession();
+  const user = session?.user;
+
+  if (!user || !user.sub) {
+    throw new Error("UNAUTHORIZED");
+  }
+
   return await prisma.form.update({
     data: {
       submissions: {
@@ -181,6 +188,7 @@ export async function SubmitForm(formUrl: string, content: string) {
       FormSubmissions: {
         create: {
           content,
+          userId: user.sub,
         },
       },
     },

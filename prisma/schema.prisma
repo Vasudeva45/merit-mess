@@ -31,6 +31,7 @@ model FormSubmissions {
   createdAt DateTime @default(now())
   formId    Int
   content   String
+  userId    String
   form      Form     @relation(fields: [formId], references: [id])
 }
 

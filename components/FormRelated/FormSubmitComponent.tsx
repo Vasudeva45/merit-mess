@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useRef, useState, useTransition } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Card,
@@ -37,6 +43,8 @@ import {
 } from "@radix-ui/react-icons";
 import { SubmitForm } from "@/actions/form";
 import { toast } from "sonner";
+import { useUser } from "@auth0/nextjs-auth0/client";
+import { useRouter } from "next/navigation";
 
 function FormSubmitComponent({
   formUrl,
@@ -45,6 +53,8 @@ function FormSubmitComponent({
   content: FormElementInstance[];
   formUrl: string;
 }>) {
+  const { user, isLoading } = useUser();
+  const router = useRouter();
   const formValues = useRef<{ [key: string]: string }>({});
   const formErrors = useRef<{ [key: string]: boolean }>({});
   const [renderKey, setRenderKey] = useState(new Date().getTime());
@@ -52,6 +62,16 @@ function FormSubmitComponent({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      // Redirect to login if user is not authenticated
+      router.push(
+        "/api/auth/login?returnTo=" +
+          encodeURIComponent(window.location.pathname)
+      );
+    }
+  }, [user, isLoading, router]);
 
   // Enhanced validation with more detailed error tracking
   const validateForm: () => { isValid: boolean; errorCount: number } =
@@ -89,6 +109,18 @@ function FormSubmitComponent({
   }, []);
 
   const submitForm = async () => {
+    if (!user) {
+      toast.error("Please sign in to submit the form", {
+        description: "You will be redirected to the login page.",
+        icon: <ExclamationTriangleIcon />,
+      });
+      router.push(
+        "/api/auth/login?returnTo=" +
+          encodeURIComponent(window.location.pathname)
+      );
+      return;
+    }
+
     formErrors.current = {};
     setSubmitError(null);
 
@@ -112,7 +144,15 @@ function FormSubmitComponent({
     }
 
     try {
-      const JsonContent = JSON.stringify(formValues.current);
+      // Include user information in the submission
+      const submissionData = {
+        ...formValues.current,
+        userId: user.sub,
+        userEmail: user.email,
+        userName: user.name,
+      };
+
+      const JsonContent = JSON.stringify(submissionData);
       await SubmitForm(formUrl, JsonContent);
 
       // Complete progress
@@ -124,12 +164,19 @@ function FormSubmitComponent({
         icon: <CheckIcon />,
       });
 
-      // Small delay to show 100% progress
       setTimeout(() => {
         setSubmitted(true);
       }, 500);
     } catch (error) {
-      const errorMessage = "Something went wrong while submitting the form.";
+      let errorMessage = "Something went wrong while submitting the form.";
+
+      if (error instanceof Error && error.message === "UNAUTHORIZED") {
+        errorMessage = "Please sign in to submit the form.";
+        router.push(
+          "/api/auth/login?returnTo=" +
+            encodeURIComponent(window.location.pathname)
+        );
+      }
 
       clearInterval(progressInterval);
       setProgress(0);
@@ -154,6 +201,19 @@ function FormSubmitComponent({
   const closeWindow = () => {
     window.close(); // Simple browser window close
   };
+
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        <Card className="w-full max-w-md mx-auto shadow-2xl">
+          <CardContent className="flex items-center justify-center p-6">
+            <ReloadIcon className="h-6 w-6 animate-spin" />
+            <span className="ml-2">Loading...</span>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (submitted) {
     return (

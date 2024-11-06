@@ -23,9 +23,7 @@ model Form {
   domain          String            @default("")
   specialization  String            @default("")
   FormSubmissions FormSubmissions[]
-  projectGroup ProjectGroup?
-
-  @@unique([name, userId])
+  projectGroup    ProjectGroup?
 }
 
 model FormSubmissions {
@@ -57,28 +55,83 @@ model Profile {
   updatedAt       DateTime          @updatedAt
   submissions     FormSubmissions[]
   groupMembers    GroupMember[]     @relation("ProfileToGroupMember")
+  assignedTasks   Task[]            @relation("AssignedTo")
+  comments        Comment[]
 }
 
 model ProjectGroup {
-  id          Int       @id @default(autoincrement())
-  uid         String        @unique // Add this line
-  formId      Int       @unique  // One group per form/project
-  name        String
-  description String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  ownerId     String    // User ID of the project creator
-  members     GroupMember[]
-  form        Form      @relation(fields: [formId], references: [id])
+  id           Int           @id @default(autoincrement())
+  uid          String        @unique
+  formId       Int          @unique
+  name         String
+  description  String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  ownerId      String
+  members      GroupMember[]
+  form         Form         @relation(fields: [formId], references: [id])
+  tasks        Task[]
+  discussions  Discussion[]
+  files        ProjectFile[]
 }
 
 model GroupMember {
-  id      Int        @id @default(autoincrement())
-  groupId Int
-  userId  String
-  role    String     @default("member")
-  joinedAt DateTime  @default(now())
-  status  String     @default("pending")
-  group   ProjectGroup @relation(fields: [groupId], references: [id])
-  profile Profile   @relation(fields: [userId], references: [userId], name: "ProfileToGroupMember")
+  id        Int          @id @default(autoincrement())
+  groupId   Int
+  userId    String
+  role      String       @default("member")
+  joinedAt  DateTime     @default(now())
+  status    String       @default("pending")
+  group     ProjectGroup @relation(fields: [groupId], references: [id])
+  profile   Profile      @relation(fields: [userId], references: [userId], name: "ProfileToGroupMember")
+}
+
+model Task {
+  id          Int          @id @default(autoincrement())
+  title       String
+  description String?      @db.Text
+  status      String       @default("todo") // todo, in-progress, review, completed
+  priority    String       @default("medium") // low, medium, high
+  dueDate     DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  groupId     Int
+  assignedTo  Profile[]    @relation("AssignedTo")
+  group       ProjectGroup @relation(fields: [groupId], references: [id])
+  comments    Comment[]
+}
+
+model Comment {
+  id        Int       @id @default(autoincrement())
+  content   String    @db.Text
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  taskId    Int?
+  userId    String
+  task      Task?     @relation(fields: [taskId], references: [id])
+  author    Profile   @relation(fields: [userId], references: [userId])
+  discussion Discussion? @relation(fields: [discussionId], references: [id])
+  discussionId Int?
+}
+
+model Discussion {
+  id          Int          @id @default(autoincrement())
+  title       String
+  content     String       @db.Text
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  groupId     Int
+  group       ProjectGroup @relation(fields: [groupId], references: [id])
+  comments    Comment[]
+}
+
+model ProjectFile {
+  id          Int          @id @default(autoincrement())
+  name        String
+  url         String
+  type        String
+  size        Int
+  uploadedAt  DateTime     @default(now())
+  groupId     Int
+  group       ProjectGroup @relation(fields: [groupId], references: [id])
 }

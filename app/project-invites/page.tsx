@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Check, X, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useRouter } from "next/navigation";
 
 const ProjectPage = () => {
   const [invites, setInvites] = useState([]);
@@ -25,6 +26,7 @@ const ProjectPage = () => {
   const [error, setError] = useState(null);
   const [processingInvites, setProcessingInvites] = useState({});
   const [activeTab, setActiveTab] = useState("invitations");
+  const router = useRouter();
 
   useEffect(() => {
     fetchData();
@@ -187,7 +189,10 @@ const ProjectPage = () => {
           ) : (
             <div className="space-y-4">
               {projectGroups.map((group) => (
-                <Card key={group.id}>
+                <Card
+                  key={group.id}
+                  onClick={() => router.push(`/projects/${group.id}`)}
+                >
                   <CardHeader>
                     <CardTitle>{group.form.name}</CardTitle>
                     <CardDescription>{group.form.description}</CardDescription>

@@ -4,6 +4,9 @@ import { Button } from "../ui/button";
 import useDesigner from "./hooks/useDesigner";
 import { UpdateFormContent } from "@/actions/form";
 import { FaSpinner } from "react-icons/fa";
+import { toast } from "sonner";
+import { CheckIcon } from "lucide-react";
+import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
 
 function SaveFormBtn({ id }: Readonly<{ id: number }>) {
   const { elements } = useDesigner();
@@ -13,9 +16,15 @@ function SaveFormBtn({ id }: Readonly<{ id: number }>) {
     try {
       const jsonElements = JSON.stringify(elements);
       await UpdateFormContent(id, jsonElements);
-      alert("Form saved successfully!");
+      toast.success("Form saved successfully", {
+        description: "Thank you!",
+        icon: <CheckIcon />,
+      });
     } catch (error) {
-      alert("Something went wrong");
+      toast.error("Something went wrong", {
+        description: "comeback later!",
+        icon: <ExclamationTriangleIcon />,
+      });
     }
   };
   return (

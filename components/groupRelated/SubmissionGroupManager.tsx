@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -24,15 +24,61 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { createProjectGroup } from "@/actions/group";
+import { Ban, UserPlus } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-const SubmissionGroupManager = ({ formId, submissions }) => {
+const SubmissionGroupManager = ({
+  formId,
+  submissions,
+  existingGroup = null,
+}) => {
   const [selectedUsers, setSelectedUsers] = useState(new Set());
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
-  const [groupName, setGroupName] = useState("");
-  const [groupDescription, setGroupDescription] = useState("");
+  const [groupName, setGroupName] = useState(existingGroup?.name || "");
+  const [groupDescription, setGroupDescription] = useState(
+    existingGroup?.description || ""
+  );
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [userToRemove, setUserToRemove] = useState(null);
+
+  // Create a map of existing group members for quick lookup
+  const existingMembers = useMemo(() => {
+    if (!existingGroup) return new Map();
+    return new Map(
+      existingGroup.members.map((member) => [member.userId, member])
+    );
+  }, [existingGroup]);
+
+  // Deduplicate submissions based on userId
+  const uniqueSubmissions = useMemo(() => {
+    const userMap = new Map();
+
+    const sortedSubmissions = [...submissions].sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
+
+    sortedSubmissions.forEach((submission) => {
+      if (!userMap.has(submission.userId)) {
+        userMap.set(submission.userId, submission);
+      }
+    });
+
+    return Array.from(userMap.values());
+  }, [submissions]);
 
   const handleUserSelection = (userId) => {
+    // Don't allow selection of existing members
+    if (existingMembers.has(userId)) return;
+
     const newSelected = new Set(selectedUsers);
     if (newSelected.has(userId)) {
       newSelected.delete(userId);
@@ -42,8 +88,9 @@ const SubmissionGroupManager = ({ formId, submissions }) => {
     setSelectedUsers(newSelected);
   };
 
-  const handleCreateGroup = async () => {
-    if (!groupName.trim() || selectedUsers.size === 0) return;
+  const handleCreateOrUpdateGroup = async () => {
+    if (!groupName.trim() || (selectedUsers.size === 0 && !existingGroup))
+      return;
 
     setIsCreatingGroup(true);
     try {
@@ -52,6 +99,7 @@ const SubmissionGroupManager = ({ formId, submissions }) => {
         name: groupName,
         description: groupDescription,
         selectedMembers: Array.from(selectedUsers),
+        groupId: existingGroup?.id, // Pass groupId if updating existing group
       });
 
       // Reset form and close dialog
@@ -60,9 +108,24 @@ const SubmissionGroupManager = ({ formId, submissions }) => {
       setSelectedUsers(new Set());
       setIsGroupDialogOpen(false);
     } catch (error) {
-      console.error("Error creating group:", error);
+      console.error("Error managing group:", error);
     } finally {
       setIsCreatingGroup(false);
+    }
+  };
+
+  const handleRemoveMember = async () => {
+    if (!userToRemove) return;
+
+    try {
+      await updateGroupMember({
+        groupId: existingGroup.id,
+        userId: userToRemove,
+        action: "remove",
+      });
+      setUserToRemove(null);
+    } catch (error) {
+      console.error("Error removing member:", error);
     }
   };
 
@@ -71,13 +134,19 @@ const SubmissionGroupManager = ({ formId, submissions }) => {
       <Card>
         <CardHeader>
           <CardTitle className="flex justify-between items-center">
-            <span>Form Submissions</span>
+            <div className="flex items-center gap-2">
+              <span>Form Submissions</span>
+              <Badge variant="secondary" className="text-xs">
+                {uniqueSubmissions.length} unique users
+              </Badge>
+            </div>
             <Button
               onClick={() => setIsGroupDialogOpen(true)}
-              disabled={selectedUsers.size === 0}
+              disabled={selectedUsers.size === 0 && !existingGroup}
               className="ml-4"
             >
-              Create Group ({selectedUsers.size} selected)
+              {existingGroup ? "Update Group" : "Create Group"}
+              {selectedUsers.size > 0 && ` (${selectedUsers.size} selected)`}
             </Button>
           </CardTitle>
         </CardHeader>
@@ -90,58 +159,97 @@ const SubmissionGroupManager = ({ formId, submissions }) => {
                   <TableHead>User</TableHead>
                   <TableHead>Skills</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead>Submitted</TableHead>
+                  <TableHead>Latest Submission</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {submissions.map((submission) => (
-                  <TableRow key={submission.id} className="hover:bg-muted/50">
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedUsers.has(submission.userId)}
-                        onCheckedChange={() =>
-                          handleUserSelection(submission.userId)
-                        }
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-medium">
-                          {submission.profile?.name}
-                        </span>
-                        <span className="text-sm text-muted-foreground truncate max-w-[200px]">
-                          {submission.profile?.bio}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {submission.profile?.skills.slice(0, 3).map((skill) => (
-                          <Badge
-                            key={skill}
-                            variant="secondary"
-                            className="text-xs"
+                {uniqueSubmissions.map((submission) => {
+                  const isExistingMember = existingMembers.has(
+                    submission.userId
+                  );
+                  return (
+                    <TableRow
+                      key={submission.userId}
+                      className="hover:bg-muted/50"
+                    >
+                      <TableCell>
+                        {isExistingMember ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setUserToRemove(submission.userId)}
+                            className="text-destructive hover:text-destructive/90"
                           >
-                            {skill}
-                          </Badge>
-                        ))}
-                        {submission.profile?.skills.length > 3 && (
-                          <Badge variant="secondary" className="text-xs">
-                            +{submission.profile.skills.length - 3}
+                            <Ban className="w-4 h-4" />
+                          </Button>
+                        ) : (
+                          <Checkbox
+                            checked={selectedUsers.has(submission.userId)}
+                            onCheckedChange={() =>
+                              handleUserSelection(submission.userId)
+                            }
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium">
+                            {submission.profile?.name}
+                          </span>
+                          <span className="text-sm text-muted-foreground truncate max-w-[200px]">
+                            {submission.profile?.bio}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {submission.profile?.skills
+                            .slice(0, 3)
+                            .map((skill) => (
+                              <Badge
+                                key={skill}
+                                variant="secondary"
+                                className="text-xs"
+                              >
+                                {skill}
+                              </Badge>
+                            ))}
+                          {submission.profile?.skills.length > 3 && (
+                            <Badge variant="secondary" className="text-xs">
+                              +{submission.profile.skills.length - 3}
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {submission.profile?.type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {format(new Date(submission.createdAt), "MMM dd, yyyy")}
+                      </TableCell>
+                      <TableCell>
+                        {isExistingMember && (
+                          <Badge variant="secondary">
+                            {existingMembers.get(submission.userId).role}
                           </Badge>
                         )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {submission.profile?.type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {format(new Date(submission.createdAt), "MMM dd, yyyy")}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {uniqueSubmissions.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="text-center py-4 text-muted-foreground"
+                    >
+                      No submissions found
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </div>
@@ -151,7 +259,9 @@ const SubmissionGroupManager = ({ formId, submissions }) => {
       <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Project Group</DialogTitle>
+            <DialogTitle>
+              {existingGroup ? "Update Project Group" : "Create Project Group"}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -173,7 +283,14 @@ const SubmissionGroupManager = ({ formId, submissions }) => {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">
-                Selected members: {selectedUsers.size}
+                {existingGroup ? (
+                  <>
+                    Current members: {existingMembers.size}
+                    {selectedUsers.size > 0 && ` (${selectedUsers.size} new)`}
+                  </>
+                ) : (
+                  `Selected members: ${selectedUsers.size}`
+                )}
               </p>
             </div>
           </div>
@@ -186,16 +303,46 @@ const SubmissionGroupManager = ({ formId, submissions }) => {
               Cancel
             </Button>
             <Button
-              onClick={handleCreateGroup}
+              onClick={handleCreateOrUpdateGroup}
               disabled={
-                !groupName.trim() || selectedUsers.size === 0 || isCreatingGroup
+                !groupName.trim() ||
+                (!existingGroup && selectedUsers.size === 0) ||
+                isCreatingGroup
               }
             >
-              {isCreatingGroup ? "Creating..." : "Create Group"}
+              {isCreatingGroup
+                ? "Processing..."
+                : existingGroup
+                ? "Update Group"
+                : "Create Group"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!userToRemove}
+        onOpenChange={() => setUserToRemove(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Group Member</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove this member from the group? This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRemoveMember}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

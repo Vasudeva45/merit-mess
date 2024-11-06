@@ -97,6 +97,9 @@ export async function GetForms() {
     where: {
       userId: user.sub,
     },
+    include: {
+      projectGroup: true,
+    },
     orderBy: {
       createdAt: "desc",
     },
@@ -183,6 +186,22 @@ export async function SubmitForm(formUrl: string, content: string) {
     throw new Error("UNAUTHORIZED");
   }
 
+  // Check for existing submission
+  const existingSubmission = await prisma.form.findFirst({
+    where: {
+      shareURL: formUrl,
+      FormSubmissions: {
+        some: {
+          userId: user.sub
+        }
+      }
+    }
+  });
+
+  if (existingSubmission) {
+    throw new Error("DUPLICATE_SUBMISSION");
+  }
+
   return await prisma.form.update({
     data: {
       submissions: {
@@ -200,6 +219,41 @@ export async function SubmitForm(formUrl: string, content: string) {
       published: true,
     },
   });
+}
+
+export async function CheckDuplicateSubmission(formUrl: string, userId: string) {
+  const existingSubmission = await prisma.form.findFirst({
+    where: {
+      shareURL: formUrl,
+      FormSubmissions: {
+        some: {
+          userId: userId
+        }
+      }
+    },
+    include: {
+      FormSubmissions: {
+        where: {
+          userId: userId
+        },
+        select: {
+          createdAt: true
+        }
+      }
+    }
+  });
+
+  if (existingSubmission && existingSubmission.FormSubmissions.length > 0) {
+    return {
+      hasDuplicate: true,
+      submissionDate: existingSubmission.FormSubmissions[0].createdAt
+    };
+  }
+
+  return {
+    hasDuplicate: false,
+    submissionDate: null
+  };
 }
 
 export async function GetFormWithSubmissions(id: number) {

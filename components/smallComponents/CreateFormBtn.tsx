@@ -36,6 +36,9 @@ import { Textarea } from "../ui/textarea";
 import { CreateForm } from "@/actions/form";
 import { formschema } from "@/schemas/form";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { CheckIcon } from "lucide-react";
+import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
 
 const STUDY_DOMAINS = [
   "Computer Science (CSE)",
@@ -116,10 +119,16 @@ function CreateFormBtn() {
   async function onSubmit(values: formschemaType) {
     try {
       const formId = await CreateForm(values);
-      alert("Form created successfully!");
+      toast.success("Form Created Successfully", {
+        description: "Thank you for your submission!",
+        icon: <CheckIcon />,
+      });
       router.push(`/builder/${formId}`);
     } catch (error) {
-      alert("Something went wrong. Please try again later.");
+      toast.error("Something went wrong.", {
+        description: " Please try again later!",
+        icon: <ExclamationTriangleIcon />,
+      });
     }
   }
 

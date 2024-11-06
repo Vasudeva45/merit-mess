@@ -9,6 +9,7 @@ interface CreateGroupInput {
   name: string;
   description?: string;
   selectedMembers: string[];
+  groupId?: number; // Optional groupId for updates
 }
 
 export async function createProjectGroup(input: CreateGroupInput) {
@@ -30,15 +31,59 @@ export async function createProjectGroup(input: CreateGroupInput) {
     throw new Error("Form not found or unauthorized");
   }
 
-  const groupUid = uuidv4(); // Generate a unique UUID for the group
+  // If updating an existing group
+  if (input.groupId) {
+    // First, get existing members to avoid duplicates
+    const existingGroup = await prisma.projectGroup.findUnique({
+      where: { id: input.groupId },
+      include: { members: true },
+    });
 
-  const group = await prisma.projectGroup.create({
+    if (!existingGroup) {
+      throw new Error("Group not found");
+    }
+
+    // Get existing member user IDs
+    const existingMemberIds = new Set(
+      existingGroup.members.map((member) => member.userId)
+    );
+
+    // Filter out already existing members from selectedMembers
+    const newMembers = input.selectedMembers.filter(
+      (userId) => !existingMemberIds.has(userId)
+    );
+
+    // Update the group and add new members
+    return await prisma.projectGroup.update({
+      where: { id: input.groupId },
+      data: {
+        name: input.name,
+        description: input.description,
+        members: {
+          create: newMembers.map((userId) => ({
+            userId,
+            role: "member",
+            status: "pending",
+          })),
+        },
+      },
+      include: {
+        members: true,
+      },
+    });
+  }
+
+  // If creating a new group
+  const groupUid = uuidv4();
+
+  // Create new group with owner and members
+  return await prisma.projectGroup.create({
     data: {
       formId: input.formId,
       name: input.name,
       description: input.description,
       ownerId: user.sub,
-      uid: groupUid, // Add the UUID to the group
+      uid: groupUid,
       members: {
         create: [
           {
@@ -58,8 +103,6 @@ export async function createProjectGroup(input: CreateGroupInput) {
       members: true,
     },
   });
-
-  return group;
 }
 
 export async function getProjectGroup(formId: number) {
@@ -77,7 +120,14 @@ export async function getProjectGroup(formId: number) {
     include: {
       members: {
         include: {
-          // You might want to include user profile information here
+          profile: {
+            select: {
+              name: true,
+              skills: true,
+              type: true,
+              bio: true,
+            },
+          },
         },
       },
     },
@@ -218,4 +268,41 @@ export async function getMyProjectGroups() {
       },
     },
   });
+}
+
+export async function updateGroupMember({
+  groupId,
+  userId,
+  action,
+}: {
+  groupId: number;
+  userId: string;
+  action: "remove" | "update";
+}) {
+  const session = await getSession();
+  const user = session?.user;
+
+  if (!user?.sub) {
+    throw new Error("Unauthorized");
+  }
+
+  const group = await prisma.projectGroup.findUnique({
+    where: {
+      id: groupId,
+      ownerId: user.sub,
+    },
+  });
+
+  if (!group) {
+    throw new Error("Group not found or unauthorized");
+  }
+
+  if (action === "remove") {
+    return await prisma.groupMember.deleteMany({
+      where: {
+        groupId,
+        userId,
+      },
+    });
+  }
 }

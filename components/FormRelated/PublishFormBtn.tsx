@@ -15,6 +15,9 @@ import {
   AlertDialogTrigger,
 } from "../ui/alert-dialog";
 import { Button } from "../ui/button";
+import { toast } from "sonner";
+import { CheckIcon } from "lucide-react";
+import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
 
 function PublishFormBtn({ id }: Readonly<{ id: number }>) {
   const [loading, startTransition] = useTransition();
@@ -23,10 +26,16 @@ function PublishFormBtn({ id }: Readonly<{ id: number }>) {
   async function publishForm() {
     try {
       await PublishForm(id);
-      alert("Form published successfully");
+      toast.success("Link copied to clipboard", {
+        description: "Thank you!",
+        icon: <CheckIcon />,
+      });
       router.refresh();
     } catch (error) {
-      alert("Something went wrong");
+      toast.error("Something went wrong", {
+        description: "Comeback later!",
+        icon: <ExclamationTriangleIcon />,
+      });
     }
   }
 

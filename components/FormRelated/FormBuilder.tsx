@@ -21,6 +21,8 @@ import { Button } from "../ui/button";
 import Link from "next/link";
 import { BsArrowLeft, BsArrowRight } from "react-icons/bs";
 import Confetti from "react-confetti";
+import { toast } from "sonner";
+import { CheckIcon } from "lucide-react";
 
 function FormBuilder({ form }: Readonly<{ form: Form }>) {
   const { setElements } = useDesigner();
@@ -84,7 +86,10 @@ function FormBuilder({ form }: Readonly<{ form: Form }>) {
                 className="mt-2 w-full"
                 onClick={() => {
                   navigator.clipboard.writeText(shareUrl);
-                  alert("Successfully copied the URL");
+                  toast.success("Successfully copied the URL", {
+                    description: "Thank you!",
+                    icon: <CheckIcon />,
+                  });
                 }}
               >
                 Copy link

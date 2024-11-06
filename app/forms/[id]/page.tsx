@@ -1,6 +1,9 @@
 import React from "react";
 import { GetFormById, GetFormWithSubmissions } from "@/actions/form";
-import { getFormSubmissionsWithProfiles } from "@/actions/group";
+import {
+  getFormSubmissionsWithProfiles,
+  getProjectGroup,
+} from "@/actions/group";
 import { StatsCard } from "@/app/project/new/page";
 import {
   ElementsType,
@@ -8,12 +11,7 @@ import {
 } from "@/components/FormRelated/FormElements";
 import FormLinkShare from "@/components/FormRelated/FormLinkShare";
 import VisitBtn from "@/components/FormRelated/VisitBtn";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -51,11 +49,16 @@ async function BuilderPage({
   const bouncedRate = 100 - submissionRate;
 
   // Fetch submissions with profile data for group management
-  const submissionsWithProfiles = await getFormSubmissionsWithProfiles(Number(id));
+  const submissionsWithProfiles = await getFormSubmissionsWithProfiles(
+    Number(id)
+  );
+
+  // Fetch existing group data if it exists
+  const existingGroup = await getProjectGroup(Number(id));
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header section remains the same */}
+      {/* Header section */}
       <div className="py-8 border-b border-muted bg-card">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -90,7 +93,7 @@ async function BuilderPage({
       </div>
 
       <div className="container max-w-7xl mx-auto px-4 py-8">
-        {/* Stats cards section remains the same */}
+        {/* Stats cards section */}
         <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
           <StatsCard
             title="Total visits"
@@ -126,7 +129,7 @@ async function BuilderPage({
           />
         </div>
 
-        {/* New tabbed interface for submissions and groups */}
+        {/* Tabbed interface for submissions and groups */}
         <Tabs defaultValue="submissions" className="mt-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
@@ -137,7 +140,10 @@ async function BuilderPage({
                 </p>
               </div>
               <TabsList>
-                <TabsTrigger value="submissions" className="flex items-center gap-2">
+                <TabsTrigger
+                  value="submissions"
+                  className="flex items-center gap-2"
+                >
                   <FaWpforms className="w-4 h-4" />
                   Submissions
                 </TabsTrigger>
@@ -152,9 +158,10 @@ async function BuilderPage({
                 <SubmissionsTable id={Number(id)} />
               </TabsContent>
               <TabsContent value="groups">
-                <SubmissionGroupManager 
-                  formId={Number(id)} 
-                  submissions={submissionsWithProfiles} 
+                <SubmissionGroupManager
+                  formId={Number(id)}
+                  submissions={submissionsWithProfiles}
+                  existingGroup={existingGroup}
                 />
               </TabsContent>
             </CardContent>

@@ -45,6 +45,7 @@ import { SubmitForm } from "@/actions/form";
 import { toast } from "sonner";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { useRouter } from "next/navigation";
+import { CheckDuplicateSubmission } from "@/actions/form";
 
 function FormSubmitComponent({
   formUrl,
@@ -62,6 +63,23 @@ function FormSubmitComponent({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [progress, setProgress] = useState(0);
+  const [duplicateSubmission, setDuplicateSubmission] = useState<{
+    hasDuplicate: boolean;
+    submissionDate: Date | null;
+  } | null>(null);
+
+  useEffect(() => {
+    const checkDuplicate = async () => {
+      if (user?.sub) {
+        const result = await CheckDuplicateSubmission(formUrl, user.sub);
+        setDuplicateSubmission(result);
+      }
+    };
+
+    if (!isLoading && user) {
+      checkDuplicate();
+    }
+  }, [user, isLoading, formUrl]);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -144,7 +162,6 @@ function FormSubmitComponent({
     }
 
     try {
-      // Include user information in the submission
       const submissionData = {
         ...formValues.current,
         userId: user.sub,
@@ -155,7 +172,6 @@ function FormSubmitComponent({
       const JsonContent = JSON.stringify(submissionData);
       await SubmitForm(formUrl, JsonContent);
 
-      // Complete progress
       clearInterval(progressInterval);
       setProgress(100);
 
@@ -199,7 +215,7 @@ function FormSubmitComponent({
   };
 
   const closeWindow = () => {
-    window.close(); // Simple browser window close
+    window.close();
   };
 
   if (isLoading) {
@@ -211,6 +227,95 @@ function FormSubmitComponent({
             <span className="ml-2">Loading...</span>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  if (duplicateSubmission?.hasDuplicate) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        <AnimatePresence mode="wait">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Card className="w-full max-w-md mx-auto shadow-2xl">
+              <CardHeader className="text-center">
+                <CardTitle className="flex items-center justify-center gap-2 text-2xl">
+                  <ExclamationTriangleIcon className="h-8 w-8 text-yellow-500" />
+                  Previous Submission Found
+                </CardTitle>
+                <CardDescription>
+                  You have already submitted this form on{" "}
+                  {duplicateSubmission.submissionDate?.toLocaleDateString()} at{" "}
+                  {duplicateSubmission.submissionDate?.toLocaleTimeString()}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <AlertDialog>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <AlertDialogTrigger asChild>
+                            <Button className="w-full" variant="outline">
+                              <InfoCircledIcon className="mr-2 h-4 w-4" />
+                              View Details
+                            </Button>
+                          </AlertDialogTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>View your previous submission</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Previous Submission</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          <div className="bg-muted p-4 rounded-md">
+                            <p className="font-semibold">Submission Details</p>
+                            <p className="text-sm text-muted-foreground">
+                              Date:{" "}
+                              {duplicateSubmission.submissionDate?.toLocaleString()}
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-2">
+                              Each user is allowed only one submission for this
+                              form. If you need to update your submission,
+                              please contact the form administrator.
+                            </p>
+                          </div>
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Close</AlertDialogCancel>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={closeWindow}
+                          variant="secondary"
+                          className="w-full"
+                        >
+                          <Cross2Icon className="mr-2 h-4 w-4" />
+                          Close
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Close submission window</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </AnimatePresence>
       </div>
     );
   }

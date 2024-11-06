@@ -20,12 +20,12 @@ import { formatDistance } from "date-fns";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ReactNode, Suspense, useEffect, useState } from "react";
-import { FaWpforms } from "react-icons/fa";
+import { FaWpforms, FaEdit } from "react-icons/fa";
 import { HiCursorClick } from "react-icons/hi";
 import { LuView } from "react-icons/lu";
 import { TbArrowBounce } from "react-icons/tb";
 import { BiRightArrowAlt } from "react-icons/bi";
-import { FaEdit } from "react-icons/fa";
+import { Users } from "lucide-react";
 
 export default function NewProjectPage() {
   const { user, isLoading } = useUser();
@@ -207,8 +207,16 @@ function FormCard({ form }: Readonly<{ form: Form }>) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 justify-between">
           <span className="truncate font-bold">{form.name}</span>
-          {form.published && <Badge>Published</Badge>}
-          {!form.published && <Badge variant={"destructive"}>Draft</Badge>}
+          <div className="flex gap-2">
+            {form.projectGroup && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                <Users className="w-3 h-3" />
+                Group
+              </Badge>
+            )}
+            {form.published && <Badge>Published</Badge>}
+            {!form.published && <Badge variant="destructive">Draft</Badge>}
+          </div>
         </CardTitle>
         <CardDescription className="flex flex-col gap-2">
           <div className="flex items-center justify-between text-muted-foreground text-sm">
@@ -254,7 +262,7 @@ function FormCard({ form }: Readonly<{ form: Form }>) {
         {!form.published && (
           <Button
             asChild
-            variant={"secondary"}
+            variant="secondary"
             className="w-full mt-2 text-md gap-4"
           >
             <Link href={`/builder/${form.id}`}>

@@ -12,9 +12,10 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
+  CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, X, Loader2 } from "lucide-react";
+import { Check, X, Loader2, ChevronRight } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useRouter } from "next/navigation";
@@ -91,6 +92,10 @@ const ProjectPage = () => {
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
+  };
+
+  const handleProjectGroupClick = (group) => {
+    router.push(`/projects/${group.id}`);
   };
 
   return (
@@ -187,11 +192,12 @@ const ProjectPage = () => {
               <p>You are not a member of any project groups</p>
             </Card>
           ) : (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {projectGroups.map((group) => (
                 <Card
                   key={group.id}
-                  onClick={() => router.push(`/projects/${group.id}`)}
+                  onClick={() => handleProjectGroupClick(group)}
+                  className="cursor-pointer hover:shadow-md transition-shadow"
                 >
                   <CardHeader>
                     <CardTitle>{group.form.name}</CardTitle>
@@ -207,6 +213,17 @@ const ProjectPage = () => {
                       </ul>
                     </div>
                   </CardContent>
+                  <CardFooter className="flex justify-end">
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent click from triggering card click
+                        handleProjectGroupClick(group);
+                      }}
+                    >
+                      <span>View</span>
+                      <ChevronRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </CardFooter>
                 </Card>
               ))}
             </div>

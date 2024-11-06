@@ -2,12 +2,7 @@
 
 import React, { useState } from "react";
 import { createTask, updateTaskStatus } from "@/actions/task";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -39,11 +34,16 @@ const TASK_STATUS = {
   todo: { label: "To Do", icon: Circle, color: "text-gray-500" },
   "in-progress": { label: "In Progress", icon: Timer, color: "text-blue-500" },
   review: { label: "Review", icon: AlertCircle, color: "text-yellow-500" },
-  completed: { label: "Completed", icon: CheckCircle2, color: "text-green-500" },
+  completed: {
+    label: "Completed",
+    icon: CheckCircle2,
+    color: "text-green-500",
+  },
 };
 
 const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [taskData, setTaskData] = useState(tasks);
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
@@ -54,19 +54,19 @@ const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
   const handleCreateTask = async (e) => {
     e.preventDefault();
     try {
-      // Convert assigneeIds back to array format before sending
       const taskData = {
-        ...newTask,
-        assigneeIds: newTask.assigneeIds ? [newTask.assigneeIds] : [], // Convert to array only if there's a value
+        title: newTask.title,
+        description: newTask.description,
+        priority: newTask.priority,
+        assigneeIds: newTask.assigneeIds ? [newTask.assigneeIds] : [],
       };
-      
       await createTask(groupId, taskData);
       setIsCreateOpen(false);
       setNewTask({
         title: "",
         description: "",
         priority: "medium",
-        assigneeIds: "", // Reset to empty string
+        assigneeIds: "",
       });
       onUpdate();
     } catch (error) {
@@ -76,14 +76,28 @@ const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
 
   const handleStatusChange = async (taskId, newStatus) => {
     try {
+      // Optimistically update the local state
+      setTaskData((prevTasks) =>
+        prevTasks.map((task) =>
+          task.id === taskId ? { ...task, status: newStatus } : task
+        )
+      );
+
+      // Make the API call to update the status on the server
       await updateTaskStatus(taskId, newStatus);
-      onUpdate();
+      onUpdate(); // Refetch the tasks after successful update
     } catch (error) {
+      // If the API call fails, revert the local state update
+      setTaskData((prevTasks) =>
+        prevTasks.map((task) =>
+          task.id === taskId ? { ...task, status: task.status } : task
+        )
+      );
       console.error("Failed to update task status:", error);
     }
   };
 
-  const groupedTasks = tasks.reduce((acc, task) => {
+  const groupedTasks = taskData.reduce((acc, task) => {
     const status = task.status || "todo";
     if (!acc[status]) acc[status] = [];
     acc[status].push(task);

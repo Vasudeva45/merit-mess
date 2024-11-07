@@ -59,6 +59,7 @@ export async function createProjectGroup(input: CreateGroupInput) {
       data: {
         name: input.name,
         description: input.description,
+        status: "active", // update the status if needed
         members: {
           create: newMembers.map((userId) => ({
             userId,
@@ -84,6 +85,7 @@ export async function createProjectGroup(input: CreateGroupInput) {
       description: input.description,
       ownerId: user.sub,
       uid: groupUid,
+      status: "active", // set the initial status to "active"
       members: {
         create: [
           {

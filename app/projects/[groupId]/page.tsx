@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { getProjectDetails } from "@/actions/task";
+import { getProjectDetails, updateProjectStatus } from "@/actions/task";
 import {
   Card,
   CardContent,
@@ -25,6 +25,7 @@ export default function ProjectRoom() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("tasks");
+  const [newStatus, setNewStatus] = useState(projectData?.status || "active");
 
   useEffect(() => {
     fetchProjectData();
@@ -35,10 +36,20 @@ export default function ProjectRoom() {
       setLoading(true);
       const data = await getProjectDetails(groupId);
       setProjectData(data);
+      setNewStatus(data.status);
     } catch (err) {
       setError("Failed to load project details");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const updateProjectStatusHandler = async () => {
+    try {
+      await updateProjectStatus(groupId, newStatus);
+      fetchProjectData();
+    } catch (err) {
+      setError("Failed to update project status");
     }
   };
 
@@ -69,13 +80,31 @@ export default function ProjectRoom() {
           Owner:{" "}
           <span className="font-semibold">
             {
-              projectData?.members.find((m) => m.role === "owner")?.profile?.name
+              projectData?.members.find((m) => m.role === "owner")?.profile
+                ?.name
             }
           </span>
         </div>
+        <div className="text-sm text-gray-500">
+          Status:{" "}
+          <select
+            value={newStatus}
+            onChange={(e) => setNewStatus(e.target.value)}
+            onBlur={updateProjectStatusHandler}
+            className="px-4 py-2 border rounded-md"
+          >
+            <option value="active">Active</option>
+            <option value="completed">Completed</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-4"
+      >
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="discussions">Discussions</TabsTrigger>

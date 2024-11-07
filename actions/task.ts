@@ -78,6 +78,35 @@ export async function getProjectDetails(groupId: number) {
   });
 }
 
+export async function updateProjectStatus(groupId: number, newStatus: string) {
+  const session = await getSession();
+  const user = session?.user;
+
+  if (!user?.sub) {
+    throw new Error("Unauthorized");
+  }
+
+  const group = await prisma.projectGroup.findUnique({
+    where: {
+      id: groupId,
+      ownerId: user.sub,
+    },
+  });
+
+  if (!group) {
+    throw new Error("Group not found or unauthorized");
+  }
+
+  return await prisma.projectGroup.update({
+    where: {
+      id: groupId,
+    },
+    data: {
+      status: newStatus,
+    },
+  });
+}
+
 // Create a new task
 export async function createTask(
   groupId: number,

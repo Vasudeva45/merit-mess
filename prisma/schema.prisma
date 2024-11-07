@@ -73,6 +73,7 @@ model ProjectGroup {
   tasks        Task[]
   discussions  Discussion[]
   files        ProjectFile[]
+  status       String        @default("active")
 }
 
 model GroupMember {

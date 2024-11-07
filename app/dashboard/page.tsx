@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import { getMyProjectGroups, getProjectInvites } from "@/actions/group";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@auth0/nextjs-auth0/client";
+import { BarChart, Loader2 } from "lucide-react";
 import { redirect } from "next/navigation";
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
-import { BarChart, CheckSquare, Award, Users, Loader2 } from 'lucide-react';
-import { getMyProjectGroups, getProjectInvites } from '@/actions/group';
+import { useEffect, useState } from "react";
 
 export default function DashboardPage() {
   const { user, isLoading: authLoading } = useUser();
@@ -19,12 +19,12 @@ export default function DashboardPage() {
         try {
           const [myGroups, invites] = await Promise.all([
             getMyProjectGroups(),
-            getProjectInvites()
+            getProjectInvites(),
           ]);
           setProjectGroups(myGroups);
           setProjectInvites(invites);
         } catch (error) {
-          console.error('Error fetching dashboard data:', error);
+          console.error("Error fetching dashboard data:", error);
         } finally {
           setDataLoading(false);
         }
@@ -54,31 +54,55 @@ export default function DashboardPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Active Projects
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-bold">{projectGroups.filter(group => group.status === 'active').length}</div>
+            <div className="text-4xl font-bold">
+              {
+                projectGroups.filter((group) => group.status === "active")
+                  .length
+              }
+            </div>
             <div className="text-sm text-muted-foreground">
-              {projectGroups.filter(group => group.status === 'active').length} active projects
+              {
+                projectGroups.filter((group) => group.status === "active")
+                  .length
+              }{" "}
+              active projects
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Completed Projects</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Completed Projects
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-bold">{projectGroups.filter(group => group.status === 'completed').length}</div>
+            <div className="text-4xl font-bold">
+              {
+                projectGroups.filter((group) => group.status === "completed")
+                  .length
+              }
+            </div>
             <div className="text-sm text-muted-foreground">
-              {projectGroups.filter(group => group.status === 'completed').length} completed projects
+              {
+                projectGroups.filter((group) => group.status === "completed")
+                  .length
+              }{" "}
+              completed projects
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Pending Invites</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Pending Invites
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-bold">{projectInvites.length}</div>
@@ -96,11 +120,16 @@ export default function DashboardPage() {
         <CardContent>
           <div className="space-y-4">
             {projectGroups.slice(0, 3).map((group) => (
-              <div key={group.id} className="flex items-center gap-4 p-4 rounded-lg bg-muted/50">
+              <div
+                key={group.id}
+                className="flex items-center gap-4 p-4 rounded-lg bg-muted/50"
+              >
                 <BarChart className="h-5 w-5 text-primary" />
                 <div>
                   <p className="font-medium">{group.form?.name}</p>
-                  <p className="text-sm text-muted-foreground">{group.status}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {group.status}
+                  </p>
                 </div>
               </div>
             ))}

@@ -213,9 +213,10 @@ export async function getProjectInvites() {
     throw new Error("Unauthorized");
   }
 
-  return await prisma.groupMember.findMany({
+  const pendingInvites = await prisma.groupMember.findMany({
     where: {
       userId: user.sub,
+      status: "pending",
       NOT: {
         role: "owner",
       },
@@ -233,6 +234,8 @@ export async function getProjectInvites() {
       },
     },
   });
+
+  return pendingInvites;
 }
 
 export async function getMyProjectGroups() {

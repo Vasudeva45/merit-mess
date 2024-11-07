@@ -18,18 +18,6 @@ export default function AchievementsPage() {
         try {
           const projectGroups = await getMyProjectGroups();
           setProjects(projectGroups);
-          console.log("User ID:", user.sub);
-          projectGroups.forEach((project) => {
-            console.log("Project Group Users:");
-            project.members.forEach((member) => {
-              console.log(
-                "- Name:",
-                member.profile.name,
-                "| User ID:",
-                member.userId
-              );
-            });
-          });
           setIsLoading(false);
         } catch (error) {
           console.error("Error fetching projects:", error);

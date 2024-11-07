@@ -29,6 +29,7 @@ import {
   Circle,
   Timer,
 } from "lucide-react";
+import TaskEditRoom from "./TaskEditRoom";
 
 const TASK_STATUS = {
   todo: { label: "To Do", icon: Circle, color: "text-gray-500" },
@@ -204,6 +205,7 @@ const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
                     key={task.id}
                     task={task}
                     onStatusChange={handleStatusChange}
+                    members={members}
                   />
                 ))}
               </div>
@@ -215,43 +217,57 @@ const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
   );
 };
 
-const TaskCard = ({ task, onStatusChange }) => {
+const TaskCard = ({ task, onStatusChange, members }) => {
+  const [isEditOpen, setIsEditOpen] = useState(false);
   return (
-    <Card className="p-3 hover:shadow-md transition-shadow">
-      <div className="space-y-2">
-        <div className="flex justify-between items-start">
-          <h3 className="font-medium">{task.title}</h3>
-          <Select
-            value={task.status}
-            onValueChange={(value) => onStatusChange(task.id, value)}
-          >
-            <SelectTrigger className="h-6 w-24">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(TASK_STATUS).map(([value, { label }]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {task.description && (
-          <p className="text-sm text-gray-500">{task.description}</p>
-        )}
-        {task.assignedTo?.length > 0 && (
-          <div className="flex items-center space-x-2 text-xs text-gray-500">
-            <span>Assigned to:</span>
-            {task.assignedTo.map((user) => (
-              <span key={user.userId} className="font-medium">
-                {user.name}
-              </span>
-            ))}
+    <>
+      <Card
+        className="p-3 hover:shadow-md transition-shadow cursor-pointer"
+        onClick={() => setIsEditOpen(true)}
+      >
+        <div className="space-y-2">
+          <div className="flex justify-between items-start">
+            <h3 className="font-medium">{task.title}</h3>
+            <Select
+              value={task.status}
+              onValueChange={(value) => onStatusChange(task.id, value)}
+            >
+              <SelectTrigger className="h-6 w-24">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(TASK_STATUS).map(([value, { label }]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        )}
-      </div>
-    </Card>
+          {task.description && (
+            <p className="text-sm text-gray-500">{task.description}</p>
+          )}
+          {task.assignedTo?.length > 0 && (
+            <div className="flex items-center space-x-2 text-xs text-gray-500">
+              <span>Assigned to:</span>
+              {task.assignedTo.map((user) => (
+                <span key={user.userId} className="font-medium">
+                  {user.name}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <TaskEditRoom
+        task={task}
+        isOpen={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        members={members}
+        onUpdate={onStatusChange}
+      />
+    </>
   );
 };
 

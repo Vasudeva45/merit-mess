@@ -79,13 +79,16 @@ export async function getProjectDetails(groupId: number) {
 }
 
 // Create a new task
-export async function createTask(groupId: number, data: {
-  title: string;
-  description?: string;
-  priority?: string;
-  dueDate?: Date;
-  assigneeIds?: string[];
-}) {
+export async function createTask(
+  groupId: number,
+  data: {
+    title: string;
+    description?: string;
+    priority?: string;
+    dueDate?: Date;
+    assigneeIds?: string[];
+  }
+) {
   const session = await getSession();
   const user = session?.user;
 
@@ -150,7 +153,7 @@ export async function updateTaskStatus(taskId: number, status: string) {
     },
   });
 
-  if (!task || !task.group.members.some(m => m.userId === user.sub)) {
+  if (!task || !task.group.members.some((m) => m.userId === user.sub)) {
     throw new Error("Task not found or unauthorized");
   }
 
@@ -168,11 +171,82 @@ export async function updateTaskStatus(taskId: number, status: string) {
   });
 }
 
+export async function updateTask(
+  taskId: number,
+  data: {
+    status?: string;
+    title?: string;
+    description?: string;
+    priority?: string;
+    dueDate?: Date;
+    assigneeIds?: string[];
+  }
+) {
+  const session = await getSession();
+  const user = session?.user;
+
+  if (!user?.sub) {
+    throw new Error("Unauthorized");
+  }
+
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: {
+      group: {
+        include: {
+          members: true,
+        },
+      },
+    },
+  });
+
+  if (!task || !task.group.members.some((m) => m.userId === user.sub)) {
+    throw new Error("Task not found or unauthorized");
+  }
+
+  const { assigneeIds, ...updateData } = data;
+
+  return await prisma.task.update({
+    where: { id: taskId },
+    data: {
+      ...updateData,
+      ...(assigneeIds && {
+        assignedTo: {
+          set: assigneeIds.map((id) => ({ userId: id })),
+        },
+      }),
+    },
+    include: {
+      assignedTo: {
+        select: {
+          name: true,
+          userId: true,
+        },
+      },
+      comments: {
+        include: {
+          author: {
+            select: {
+              name: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      },
+    },
+  });
+}
+
 // Create a discussion
-export async function createDiscussion(groupId: number, data: {
-  title: string;
-  content: string;
-}) {
+export async function createDiscussion(
+  groupId: number,
+  data: {
+    title: string;
+    content: string;
+  }
+) {
   const session = await getSession();
   const user = session?.user;
 
@@ -229,12 +303,15 @@ export async function addComment(data: {
 }
 
 // Upload file (metadata only - actual upload would be handled separately)
-export async function createFileRecord(groupId: number, data: {
-  name: string;
-  url: string;
-  type: string;
-  size: number;
-}) {
+export async function createFileRecord(
+  groupId: number,
+  data: {
+    name: string;
+    url: string;
+    type: string;
+    size: number;
+  }
+) {
   const session = await getSession();
   const user = session?.user;
 

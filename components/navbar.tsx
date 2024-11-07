@@ -201,7 +201,7 @@ const Navbar = () => {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/my-projects" className="flex items-center">
+                  <Link href="/project-invites" className="flex items-center">
                     <Laptop className="mr-2 h-4 w-4" />
                     My Projects
                   </Link>

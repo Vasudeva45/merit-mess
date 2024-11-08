@@ -131,6 +131,7 @@ model ProjectFile {
   id          Int          @id @default(autoincrement())
   name        String
   url         String
+  viewUrl     String       @unique @default(uuid()) 
   type        String
   size        Int
   uploadedAt  DateTime     @default(now())

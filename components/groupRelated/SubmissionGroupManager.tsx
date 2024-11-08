@@ -35,6 +35,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { getProfilesByIds } from "@/actions/profile";
 
 const SubmissionGroupManager = ({
   formId,
@@ -77,6 +78,29 @@ const SubmissionGroupManager = ({
 
     return Array.from(userMap.values());
   }, [submissions, existingGroup?.ownerId]);
+
+  const [profiles, setProfiles] = useState({});
+  const userIds = useMemo(
+    () => uniqueSubmissions.map((s) => s.userId),
+    [uniqueSubmissions]
+  );
+
+  React.useEffect(() => {
+    const fetchProfiles = async () => {
+      try {
+        const fetchedProfiles = await getProfilesByIds(userIds);
+        const profileMap = fetchedProfiles.reduce((acc, profile) => {
+          acc[profile.userId] = profile;
+          return acc;
+        }, {});
+        setProfiles(profileMap);
+      } catch (error) {
+        console.error("Error fetching profiles:", error);
+      }
+    };
+
+    fetchProfiles();
+  }, [userIds]);
 
   const handleUserSelection = (userId) => {
     // Don't allow selection of existing members or owner
@@ -174,6 +198,7 @@ const SubmissionGroupManager = ({
                   const isExistingMember = existingMembers.has(
                     submission.userId
                   );
+                  const profile = profiles[submission.userId];
                   return (
                     <TableRow
                       key={submission.userId}
@@ -209,47 +234,50 @@ const SubmissionGroupManager = ({
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium">
-                            {submission.profile?.name}
-                            {submission.isOwner && (
-                              <Badge
-                                variant="secondary"
-                                className="ml-2 text-xs"
-                              >
-                                Owner
-                              </Badge>
-                            )}
-                          </span>
-                          <span className="text-sm text-muted-foreground truncate max-w-[200px]">
-                            {submission.profile?.bio}
-                          </span>
+                        <div className="flex items-center space-x-2">
+                          <img
+                            src={profile?.imageUrl || "/placeholder.png"}
+                            alt={profile?.name || ""}
+                            className="h-8 w-8 rounded-full"
+                          />
+                          <div className="flex flex-col">
+                            <span className="font-medium">
+                              {profile?.name}
+                              {submission.isOwner && (
+                                <Badge
+                                  variant="secondary"
+                                  className="ml-2 text-xs"
+                                >
+                                  Owner
+                                </Badge>
+                              )}
+                            </span>
+                            <span className="text-sm text-muted-foreground truncate max-w-[200px]">
+                              {profile?.bio}
+                            </span>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {submission.profile?.skills
-                            .slice(0, 3)
-                            .map((skill) => (
-                              <Badge
-                                key={skill}
-                                variant="secondary"
-                                className="text-xs"
-                              >
-                                {skill}
-                              </Badge>
-                            ))}
-                          {submission.profile?.skills.length > 3 && (
+                          {profile?.skills.slice(0, 3).map((skill) => (
+                            <Badge
+                              key={skill}
+                              variant="secondary"
+                              className="text-xs"
+                            >
+                              {skill}
+                            </Badge>
+                          ))}
+                          {profile?.skills.length > 3 && (
                             <Badge variant="secondary" className="text-xs">
-                              +{submission.profile.skills.length - 3}
+                              +{profile.skills.length - 3}
                             </Badge>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">
-                          {submission.profile?.type}
-                        </Badge>
+                        <Badge variant="outline">{profile?.type}</Badge>
                       </TableCell>
                       <TableCell>
                         {format(new Date(submission.createdAt), "MMM dd, yyyy")}

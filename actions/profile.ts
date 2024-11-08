@@ -118,6 +118,23 @@ export async function updateProfile(formData: ProfileUpdateData) {
   }
 }
 
+export async function getProfilesByIds(userIds: string[]) {
+  try {
+    const profiles = await prisma.profile.findMany({
+      where: {
+        userId: {
+          in: userIds,
+        },
+      },
+    });
+
+    return profiles;
+  } catch (error) {
+    console.error("Error fetching profiles:", error);
+    throw new Error("Failed to fetch profiles");
+  }
+}
+
 export async function formatValidationErrors(error: ValidationError) {
   return Object.entries(error.errors).reduce((acc, [field, messages]) => {
     acc[field] = messages.join(", ");

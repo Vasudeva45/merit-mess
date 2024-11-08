@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { LoginButton } from "./login-button";
 import { SignupButton } from "./signup-button";
@@ -34,6 +34,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { StatsCards } from "@/app/project/new/page";
+import { getProfile } from "@/actions/profile";
+import { Profile } from "@prisma/client";
 
 const NavLink = ({ href, children, className }) => {
   const pathname = usePathname();
@@ -55,6 +57,22 @@ const NavLink = ({ href, children, className }) => {
 
 const Navbar = () => {
   const { user, isLoading } = useUser();
+  const [profile, setProfile] = useState<Profile | null>(null);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const data = await getProfile();
+        setProfile(data);
+      } catch (error) {
+        console.error("Error fetching profile:", error);
+      }
+    };
+
+    if (user && !isLoading) {
+      fetchProfile();
+    }
+  }, [user, isLoading]);
 
   // If not logged in, only show the landing page nav
   if (!user && !isLoading) {
@@ -177,11 +195,16 @@ const Navbar = () => {
           {user && !isLoading && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="relative h-9 w-9 rounded-full"
-                >
-                  <UserCircle className="h-6 w-6" />
+                <Button variant="ghost" className="relative rounded-full p-1">
+                  {profile?.imageUrl ? (
+                    <img
+                      src={profile.imageUrl}
+                      alt={profile.name}
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <UserCircle className="h-6 w-6" />
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">

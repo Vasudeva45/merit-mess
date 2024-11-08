@@ -36,6 +36,7 @@ export async function getProfile() {
     if (!profile) {
       const defaultProfile: ProfileFormData = {
         name: user.name || "",
+        imageUrl: "", // Ensure this is included
         type: "student",
         email: user.email || "",
         skills: [],

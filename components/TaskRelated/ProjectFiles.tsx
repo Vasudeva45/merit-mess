@@ -17,34 +17,67 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FileUp, Download, File } from "lucide-react";
+import { FileUp, Download, File, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 const ProjectFiles = ({ files, groupId, onUpdate }) => {
   const [uploading, setUploading] = useState(false);
+  const { toast } = useToast();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = async (e) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Check file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Error",
+        description: "File size must be less than 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setUploading(true);
-      // Here you would typically upload the file to your storage service
-      // and get back a URL. This is a simplified example.
-      const url = "/placeholder-url"; // Replace with actual upload logic
+      
+      // Create FormData
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('groupId', groupId.toString());
 
-      await createFileRecord(groupId, {
-        name: file.name,
-        url,
-        type: file.type,
-        size: file.size,
+      // Upload file
+      const response = await fetch('/api/upload-project-file', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      
+      toast({
+        title: "Success",
+        description: "File uploaded successfully",
       });
       
       onUpdate();
     } catch (error) {
       console.error("Failed to upload file:", error);
+      toast({
+        title: "Error",
+        description: "Failed to upload file",
+        variant: "destructive",
+      });
     } finally {
       setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -68,14 +101,22 @@ const ProjectFiles = ({ files, groupId, onUpdate }) => {
         <div>
           <input
             type="file"
+            ref={fileInputRef}
             id="file-upload"
             className="hidden"
             onChange={handleFileUpload}
+            disabled={uploading}
           />
           <label htmlFor="file-upload">
-            <Button as="span" disabled={uploading}>
-              <FileUp className="h-4 w-4 mr-2" />
-              Upload File
+            <Button asChild disabled={uploading}>
+              <span>
+                {uploading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <FileUp className="h-4 w-4 mr-2" />
+                )}
+                {uploading ? "Uploading..." : "Upload File"}
+              </span>
             </Button>
           </label>
         </div>

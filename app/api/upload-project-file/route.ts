@@ -1,0 +1,73 @@
+import { NextResponse } from 'next/server';
+import { put } from '@vercel/blob';
+import { getSession } from '@auth0/nextjs-auth0';
+import prisma from '@/lib/prisma';
+
+export async function POST(request: Request) {
+  try {
+    const session = await getSession();
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const formData = await request.formData();
+    const file = formData.get('file') as File;
+    const groupId = parseInt(formData.get('groupId') as string);
+    
+    if (!file) {
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+    }
+
+    if (!groupId) {
+      return NextResponse.json({ error: 'No group ID provided' }, { status: 400 });
+    }
+
+    // Check if user is a member of the group
+    const groupMember = await prisma.groupMember.findFirst({
+      where: {
+        groupId: groupId,
+        userId: session.user.sub,
+        status: 'accepted'
+      }
+    });
+
+    if (!groupMember) {
+      return NextResponse.json({ error: 'Unauthorized access to group' }, { status: 403 });
+    }
+
+    // Generate a unique filename
+    const timestamp = Date.now();
+    const extension = file.name.split('.').pop();
+    const filename = `project-${groupId}-${timestamp}.${extension}`;
+
+    // Upload to Vercel Blob
+    const blob = await put(filename, file, {
+      access: 'public',
+    });
+
+    // Create file record in database
+    const projectFile = await prisma.projectFile.create({
+      data: {
+        name: file.name,
+        url: blob.url,
+        type: file.type,
+        size: file.size,
+        groupId: groupId,
+      },
+    });
+
+    return NextResponse.json(projectFile);
+  } catch (error) {
+    console.error('Upload error:', error);
+    return NextResponse.json(
+      { error: 'Failed to upload file' },
+      { status: 500 }
+    );
+  }
+}
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};

@@ -1,22 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
 import { getProjectDetails, updateProjectStatus } from "@/actions/task";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2 } from "lucide-react";
-import TaskBoard from "@/components/TaskRelated/TaskBoard";
 import DiscussionBoard from "@/components/TaskRelated/DiscussionBoard";
-import ProjectMembers from "@/components/TaskRelated/ProjectMembers";
 import ProjectFiles from "@/components/TaskRelated/ProjectFiles";
+import ProjectMembers from "@/components/TaskRelated/ProjectMembers";
+import TaskBoard from "@/components/TaskRelated/TaskBoard";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2 } from "lucide-react";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function ProjectRoom() {
   const params = useParams();

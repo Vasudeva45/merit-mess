@@ -8,6 +8,7 @@ const ProjectSchema = z.object({
 
 export const profileSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  imageUrl: z.string().optional(),
   type: z.enum(["student", "mentor"], {
     required_error: "Type is required",
     invalid_type_error: "Type must be either student or mentor",

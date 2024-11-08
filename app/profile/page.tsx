@@ -1,15 +1,12 @@
-import React from "react";
-import { getSession } from "@auth0/nextjs-auth0";
-import { redirect } from "next/navigation";
-import { Separator } from "@/components/ui/separator";
 import { getProfile, updateProfile } from "@/actions/profile";
-import ProfileSlider from "./components/ProfileSlider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { UserPlus } from "lucide-react";
-import { profileSchema, type ProfileFormData } from "@/schemas/profile";
 import { Toaster } from "@/components/ui/toaster";
+import { profileSchema, type ProfileFormData } from "@/schemas/profile";
+import { getSession } from "@auth0/nextjs-auth0";
+import { UserPlus } from "lucide-react";
+import { redirect } from "next/navigation";
 import { ErrorState } from "./components/ErrorState";
+import ProfileSlider from "./components/ProfileSlider";
 
 const EmptyProfileState = ({
   defaultData,

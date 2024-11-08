@@ -31,6 +31,8 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import isEqual from "lodash/isEqual";
+import ImageUpload from './ImageUpload';
+
 
 interface Project {
   name: string;
@@ -40,6 +42,7 @@ interface Project {
 
 interface Profile {
   name: string;
+  imageUrl?: string;
   type: string;
   email: string;
   location?: string;
@@ -120,6 +123,42 @@ const ProfileSlider: React.FC<ProfileSliderProps> = ({ profile, onSave }) => {
     }
   };
 
+  const handleImageUpload = async (file: File) => {
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+  
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+  
+      if (!response.ok) {
+        throw new Error('Failed to upload image');
+      }
+  
+      const { imageUrl } = await response.json();
+      
+      // Update local state
+      setFormData(prev => ({ ...prev, imageUrl }));
+      
+      // Immediately save to database
+      await onSave({ ...formData, imageUrl });
+  
+      toast({
+        title: "Success",
+        description: "Profile picture updated successfully",
+      });
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to upload image",
+        variant: "destructive",
+      });
+    }
+  };
+
   const removeSkill = (skillToRemove: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -184,16 +223,15 @@ const ProfileSlider: React.FC<ProfileSliderProps> = ({ profile, onSave }) => {
           className="max-w-6xl mx-auto"
         >
           {/* Profile Header */}
+          <ImageUpload
+              onUpload={handleImageUpload}
+              imageUrl={formData.imageUrl}
+            />
           <motion.div
             className="text-center mb-8"
             initial={{ y: -20 }}
             animate={{ y: 0 }}
           >
-            <div className="w-32 h-32 rounded-full mx-auto mb-4 border-4 border-primary/10 flex items-center justify-center bg-primary/5">
-              <span className="text-4xl font-bold text-primary">
-                {profile.name.charAt(0).toUpperCase()}
-              </span>
-            </div>
             <h1 className="text-4xl font-bold mb-2">{profile.name}</h1>
             <Badge variant="secondary" className="text-lg px-6 py-1">
               {profile.type}

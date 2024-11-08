@@ -40,6 +40,7 @@ model Profile {
   id              Int               @id @default(autoincrement())
   userId          String            @unique
   name            String
+  imageUrl        String?
   type            String            @default("student")
   title           String?
   bio             String?           @db.Text

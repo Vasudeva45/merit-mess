@@ -24,6 +24,7 @@ model Form {
   specialization  String            @default("")
   FormSubmissions FormSubmissions[]
   projectGroup    ProjectGroup?
+  status    String    @default("draft")
 }
 
 model FormSubmissions {

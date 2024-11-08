@@ -24,7 +24,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { createProjectGroup } from "@/actions/group";
-import { Ban, UserPlus } from "lucide-react";
+import { Ban, Lock } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,7 +58,7 @@ const SubmissionGroupManager = ({
     );
   }, [existingGroup]);
 
-  // Deduplicate submissions based on userId
+  // Deduplicate submissions based on userId and identify owner
   const uniqueSubmissions = useMemo(() => {
     const userMap = new Map();
 
@@ -68,16 +68,23 @@ const SubmissionGroupManager = ({
 
     sortedSubmissions.forEach((submission) => {
       if (!userMap.has(submission.userId)) {
-        userMap.set(submission.userId, submission);
+        userMap.set(submission.userId, {
+          ...submission,
+          isOwner: submission.userId === existingGroup?.ownerId,
+        });
       }
     });
 
     return Array.from(userMap.values());
-  }, [submissions]);
+  }, [submissions, existingGroup?.ownerId]);
 
   const handleUserSelection = (userId) => {
-    // Don't allow selection of existing members
-    if (existingMembers.has(userId)) return;
+    // Don't allow selection of existing members or owner
+    if (
+      existingMembers.has(userId) ||
+      uniqueSubmissions.find((s) => s.userId === userId)?.isOwner
+    )
+      return;
 
     const newSelected = new Set(selectedUsers);
     if (newSelected.has(userId)) {
@@ -99,10 +106,9 @@ const SubmissionGroupManager = ({
         name: groupName,
         description: groupDescription,
         selectedMembers: Array.from(selectedUsers),
-        groupId: existingGroup?.id, // Pass groupId if updating existing group
+        groupId: existingGroup?.id,
       });
 
-      // Reset form and close dialog
       setGroupName("");
       setGroupDescription("");
       setSelectedUsers(new Set());
@@ -174,7 +180,17 @@ const SubmissionGroupManager = ({
                       className="hover:bg-muted/50"
                     >
                       <TableCell>
-                        {isExistingMember ? (
+                        {submission.isOwner ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled
+                            className="text-muted-foreground"
+                            title="Form owner cannot be removed"
+                          >
+                            <Lock className="w-4 h-4" />
+                          </Button>
+                        ) : isExistingMember ? (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -196,6 +212,14 @@ const SubmissionGroupManager = ({
                         <div className="flex flex-col">
                           <span className="font-medium">
                             {submission.profile?.name}
+                            {submission.isOwner && (
+                              <Badge
+                                variant="secondary"
+                                className="ml-2 text-xs"
+                              >
+                                Owner
+                              </Badge>
+                            )}
                           </span>
                           <span className="text-sm text-muted-foreground truncate max-w-[200px]">
                             {submission.profile?.bio}
@@ -231,9 +255,11 @@ const SubmissionGroupManager = ({
                         {format(new Date(submission.createdAt), "MMM dd, yyyy")}
                       </TableCell>
                       <TableCell>
-                        {isExistingMember && (
+                        {(isExistingMember || submission.isOwner) && (
                           <Badge variant="secondary">
-                            {existingMembers.get(submission.userId).role}
+                            {submission.isOwner
+                              ? "Owner"
+                              : existingMembers.get(submission.userId).role}
                           </Badge>
                         )}
                       </TableCell>

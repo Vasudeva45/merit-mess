@@ -30,6 +30,15 @@ import { TbArrowBounce } from "react-icons/tb";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import SubmissionGroupManager from "@/components/groupRelated/SubmissionGroupManager";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { LuSettings } from "react-icons/lu";
+import { StatusButton } from "@/components/FormRelated/StatusButton";
 
 async function BuilderPage({
   params,
@@ -85,6 +94,7 @@ async function BuilderPage({
               </p>
             </div>
             <div className="flex items-center gap-4">
+              <StatusButton status={form.status} formId={form.id} />
               <FormLinkShare shareURL={form.shareURL} />
               <VisitBtn shareURL={form.shareURL} />
             </div>

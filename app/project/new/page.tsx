@@ -26,6 +26,7 @@ import { LuView } from "react-icons/lu";
 import { TbArrowBounce } from "react-icons/tb";
 import { BiRightArrowAlt } from "react-icons/bi";
 import { Users } from "lucide-react";
+import FormStatusTabs from "@/components/FormRelated/FormStatusTabs";
 
 export default function NewProjectPage() {
   const { user, isLoading } = useUser();
@@ -67,16 +68,13 @@ export default function NewProjectPage() {
       <SelectSeparator className="my-6" />
       <h2 className="text-4xl font-bold col-span-2">Your forms</h2>
       <SelectSeparator className="my-6" />
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <CreateFormBtn />
-        <Suspense
-          fallback={[1, 2, 3, 4].map((el) => (
-            <FormCardSkeleton key={el} />
-          ))}
-        >
-          <FormCards />
-        </Suspense>
-      </div>
+      <Suspense
+        fallback={[1, 2, 3, 4].map((el) => (
+          <FormCardSkeleton key={el} />
+        ))}
+      >
+        <FormCards />
+      </Suspense>
     </>
   );
 }
@@ -193,15 +191,11 @@ function FormCards() {
       ))}
     </>
   ) : (
-    <>
-      {forms.map((form) => (
-        <FormCard key={form.id} form={form} />
-      ))}
-    </>
+    <FormStatusTabs forms={forms} />
   );
 }
 
-function FormCard({ form }: Readonly<{ form: Form }>) {
+export function FormCard({ form }: Readonly<{ form: Form }>) {
   return (
     <Card>
       <CardHeader>
@@ -214,6 +208,17 @@ function FormCard({ form }: Readonly<{ form: Form }>) {
                 Group
               </Badge>
             )}
+            <Badge
+              variant={
+                form.status === "draft"
+                  ? "secondary"
+                  : form.status === "closed"
+                  ? "destructive"
+                  : "default"
+              }
+            >
+              {form.status.charAt(0).toUpperCase() + form.status.slice(1)}
+            </Badge>
             {form.published && <Badge>Published</Badge>}
             {!form.published && <Badge variant="destructive">Draft</Badge>}
           </div>

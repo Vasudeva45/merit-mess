@@ -27,6 +27,7 @@ type Form = {
   visits: number;
   createdAt: string;
   shareURL: string;
+  status: string;
 };
 
 const SearchBar = ({ onSearch }) => {
@@ -46,7 +47,10 @@ const SearchBar = ({ onSearch }) => {
 };
 
 const FormGrid = ({ forms }: { forms: Form[] }) => {
-  if (!forms.length) {
+  // Filter out closed forms (though they should already be filtered on server)
+  const activeForms = forms.filter((form) => form.status !== "closed");
+
+  if (!activeForms.length) {
     return (
       <div className="text-center py-12">
         <h3 className="text-lg font-semibold mb-2">No forms found</h3>
@@ -59,7 +63,7 @@ const FormGrid = ({ forms }: { forms: Form[] }) => {
 
   return (
     <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-      {forms.map((form) => (
+      {activeForms.map((form) => (
         <Card key={form.id} className="group transition-all hover:shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -95,7 +99,11 @@ const FormGrid = ({ forms }: { forms: Form[] }) => {
                 addSuffix: true,
               })}
             </div>
-            <Button variant="default" asChild>
+            <Button
+              variant="default"
+              asChild
+              disabled={form.status === "draft"}
+            >
               <a
                 href={`/submit/${form.shareURL}`}
                 target="_blank"
@@ -111,6 +119,7 @@ const FormGrid = ({ forms }: { forms: Form[] }) => {
   );
 };
 
+// Update the search filtering in SearchForms component to include status check
 export function SearchForms({ initialForms }: { initialForms: Form[] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredForms, setFilteredForms] = useState(initialForms);
@@ -119,9 +128,10 @@ export function SearchForms({ initialForms }: { initialForms: Form[] }) {
     const filtered = initialForms.filter((form) => {
       const searchLower = searchQuery.toLowerCase();
       return (
-        form.name.toLowerCase().includes(searchLower) ||
-        form.domain.toLowerCase().includes(searchLower) ||
-        form.specialization.toLowerCase().includes(searchLower)
+        form.status !== "closed" &&
+        (form.name.toLowerCase().includes(searchLower) ||
+          form.domain.toLowerCase().includes(searchLower) ||
+          form.specialization.toLowerCase().includes(searchLower))
       );
     });
     setFilteredForms(filtered);

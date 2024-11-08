@@ -186,16 +186,30 @@ export async function SubmitForm(formUrl: string, content: string) {
     throw new Error("UNAUTHORIZED");
   }
 
-  // Check for existing submission
+  // First check if form is accepting submissions
+  const form = await prisma.form.findUnique({
+    where: {
+      shareURL: formUrl,
+    },
+    select: {
+      status: true,
+    },
+  });
+
+  if (!form || form.status === "closed") {
+    throw new Error("FORM_CLOSED");
+  }
+
+  // Rest of your existing submission logic...
   const existingSubmission = await prisma.form.findFirst({
     where: {
       shareURL: formUrl,
       FormSubmissions: {
         some: {
-          userId: user.sub
-        }
-      }
-    }
+          userId: user.sub,
+        },
+      },
+    },
   });
 
   if (existingSubmission) {
@@ -221,38 +235,41 @@ export async function SubmitForm(formUrl: string, content: string) {
   });
 }
 
-export async function CheckDuplicateSubmission(formUrl: string, userId: string) {
+export async function CheckDuplicateSubmission(
+  formUrl: string,
+  userId: string
+) {
   const existingSubmission = await prisma.form.findFirst({
     where: {
       shareURL: formUrl,
       FormSubmissions: {
         some: {
-          userId: userId
-        }
-      }
+          userId: userId,
+        },
+      },
     },
     include: {
       FormSubmissions: {
         where: {
-          userId: userId
+          userId: userId,
         },
         select: {
-          createdAt: true
-        }
-      }
-    }
+          createdAt: true,
+        },
+      },
+    },
   });
 
   if (existingSubmission && existingSubmission.FormSubmissions.length > 0) {
     return {
       hasDuplicate: true,
-      submissionDate: existingSubmission.FormSubmissions[0].createdAt
+      submissionDate: existingSubmission.FormSubmissions[0].createdAt,
     };
   }
 
   return {
     hasDuplicate: false,
-    submissionDate: null
+    submissionDate: null,
   };
 }
 
@@ -279,7 +296,12 @@ export async function GetFormWithSubmissions(id: number) {
 export async function getPublicForms() {
   "use server";
   const forms = await prisma.form.findMany({
-    where: { published: true },
+    where: { 
+      published: true,
+      NOT: {
+        status: "closed"
+      }
+    },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
@@ -290,7 +312,27 @@ export async function getPublicForms() {
       visits: true,
       createdAt: true,
       shareURL: true,
+      status: true,
     },
   });
   return forms;
+}
+
+export async function UpdateFormStatus(id: number, status: string) {
+  const session = await getSession();
+  const user = session?.user;
+
+  if (!user || !user.sub) {
+    throw new UserNotFoundErr();
+  }
+
+  return await prisma.form.update({
+    where: {
+      userId: user.sub,
+      id,
+    },
+    data: {
+      status,
+    },
+  });
 }

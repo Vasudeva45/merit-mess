@@ -10,9 +10,7 @@ export default async function HomePage({ user }) {
   const forms = await getPublicForms();
 
   if (!user) {
-    return (
-      <LandingPage />
-    )
+    return <LandingPage />;
   }
   // Logged-in user view
   return (
@@ -29,7 +27,7 @@ export default async function HomePage({ user }) {
             </p>
             <div className="flex justify-center gap-4">
               <Button size="lg" variant="default" asChild>
-                <a href="/forms/new">
+                <a href="/project/new">
                   <MdCreateNewFolder className="w-5 h-5 mr-2" />
                   Create Your Form
                 </a>

@@ -182,6 +182,7 @@ export async function GetFormContentByUrl(formUrl: string) {
   return await prisma.form.update({
     select: {
       content: true,
+      userId: true,
     },
     data: {
       visits: {

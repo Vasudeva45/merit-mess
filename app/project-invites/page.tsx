@@ -38,7 +38,6 @@ const ProjectPage = () => {
       setLoading(true);
       if (activeTab === "invitations") {
         const invitesData = await getProjectInvites();
-        // Filter out invites where the user's status is 'accepted'
         setInvites(
           invitesData.filter((invite) => invite.status !== "accepted")
         );
@@ -81,7 +80,6 @@ const ProjectPage = () => {
 
       if (!response.ok) throw new Error("Failed to update invitation status");
 
-      // Remove the processed invite from the list
       setInvites((prev) => prev.filter((invite) => invite.id !== memberId));
     } catch (err) {
       setError("Failed to process invitation");
@@ -96,6 +94,13 @@ const ProjectPage = () => {
 
   const handleProjectGroupClick = (group) => {
     router.push(`/projects/${group.id}`);
+  };
+
+  // Filter function to show only pending or accepted members
+  const getValidMembers = (members) => {
+    return members.filter(
+      (member) => member.status === "pending" || member.status === "accepted"
+    );
   };
 
   return (
@@ -207,8 +212,18 @@ const ProjectPage = () => {
                     <div className="mb-2">
                       <p className="text-sm text-gray-500">Group Members:</p>
                       <ul>
-                        {group.members.map((member) => (
-                          <li key={member.id}>{member.profile.name}</li>
+                        {getValidMembers(group.members).map((member) => (
+                          <li
+                            key={member.id}
+                            className="flex items-center gap-2"
+                          >
+                            <span>{member.profile.name}</span>
+                            {member.status === "pending" && (
+                              <span className="text-xs text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded-full">
+                                Pending
+                              </span>
+                            )}
+                          </li>
                         ))}
                       </ul>
                     </div>
@@ -216,7 +231,7 @@ const ProjectPage = () => {
                   <CardFooter className="flex justify-end">
                     <Button
                       onClick={(e) => {
-                        e.stopPropagation(); // Prevent click from triggering card click
+                        e.stopPropagation();
                         handleProjectGroupClick(group);
                       }}
                     >

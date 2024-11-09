@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,17 +31,20 @@ const ProjectMembers = ({ members }) => {
     fetchProfiles();
   }, [members]);
 
-  const sortedMembers = [...members].sort((a, b) => {
-    if (a.role === "owner") return -1;
-    if (b.role === "owner") return 1;
-    return 0;
-  });
+  // Filter out rejected members and sort remaining members
+  const filteredAndSortedMembers = [...members]
+    .filter((member) => member.status !== "rejected")
+    .sort((a, b) => {
+      if (a.role === "owner") return -1;
+      if (b.role === "owner") return 1;
+      return 0;
+    });
 
   return (
     <div className="space-y-4">
       <h2 className="text-2xl font-bold">Project Members</h2>
       <div className="grid grid-cols-2 gap-4">
-        {sortedMembers.map((member) => {
+        {filteredAndSortedMembers.map((member) => {
           const profile = profiles[member.userId];
           return (
             <Card key={member.id}>

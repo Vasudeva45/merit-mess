@@ -18,7 +18,13 @@ async function SubmitPage({
 
   const formContent = JSON.parse(form.content) as FormElementInstance[];
 
-  return <FormSubmitComponent formUrl={params.formUrl} content={formContent} />;
+  return (
+    <FormSubmitComponent
+      formUrl={params.formUrl}
+      content={formContent}
+      ownerId={form.userId}
+    />
+  );
 }
 
 export default SubmitPage;

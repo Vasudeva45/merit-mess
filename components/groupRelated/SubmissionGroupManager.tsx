@@ -103,10 +103,12 @@ const SubmissionGroupManager = ({
   }, [userIds]);
 
   const handleUserSelection = (userId) => {
-    // Don't allow selection of existing members or owner
+    const member = existingMembers.get(userId);
+    // Don't allow selection of existing members, owner, or rejected members
     if (
       existingMembers.has(userId) ||
-      uniqueSubmissions.find((s) => s.userId === userId)?.isOwner
+      uniqueSubmissions.find((s) => s.userId === userId)?.isOwner ||
+      member?.status === "rejected"
     )
       return;
 
@@ -195,9 +197,9 @@ const SubmissionGroupManager = ({
               </TableHeader>
               <TableBody>
                 {uniqueSubmissions.map((submission) => {
-                  const isExistingMember = existingMembers.has(
-                    submission.userId
-                  );
+                  const existingMember = existingMembers.get(submission.userId);
+                  const isExistingMember = !!existingMember;
+                  const isRejected = existingMember?.status === "rejected";
                   const profile = profiles[submission.userId];
                   return (
                     <TableRow
@@ -214,6 +216,16 @@ const SubmissionGroupManager = ({
                             title="Form owner cannot be removed"
                           >
                             <Lock className="w-4 h-4" />
+                          </Button>
+                        ) : isRejected ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled
+                            className="text-muted-foreground"
+                            title="Rejected member"
+                          >
+                            <Ban className="w-4 h-4" />
                           </Button>
                         ) : isExistingMember ? (
                           <Button
@@ -284,10 +296,14 @@ const SubmissionGroupManager = ({
                       </TableCell>
                       <TableCell>
                         {(isExistingMember || submission.isOwner) && (
-                          <Badge variant="secondary">
+                          <Badge
+                            variant={isRejected ? "destructive" : "secondary"}
+                          >
                             {submission.isOwner
                               ? "Owner"
-                              : existingMembers.get(submission.userId).role}
+                              : isRejected
+                              ? "Rejected"
+                              : existingMember.role}
                           </Badge>
                         )}
                       </TableCell>

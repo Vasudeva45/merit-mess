@@ -41,19 +41,23 @@ import {
   InfoCircledIcon,
   ReloadIcon,
 } from "@radix-ui/react-icons";
-import { SubmitForm } from "@/actions/form";
+import { SubmitForm, CheckDuplicateSubmission } from "@/actions/form";
 import { toast } from "sonner";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { useRouter } from "next/navigation";
-import { CheckDuplicateSubmission } from "@/actions/form";
+import { ShieldCheckIcon } from "lucide-react";
+
+interface FormSubmitComponentProps {
+  formUrl: string;
+  content: FormElementInstance[];
+  ownerId?: string; // Add ownerId prop
+}
 
 function FormSubmitComponent({
   formUrl,
   content,
-}: Readonly<{
-  content: FormElementInstance[];
-  formUrl: string;
-}>) {
+  ownerId,
+}: Readonly<FormSubmitComponentProps>) {
   const { user, isLoading } = useUser();
   const router = useRouter();
   const formValues = useRef<{ [key: string]: string }>({});
@@ -68,9 +72,11 @@ function FormSubmitComponent({
     submissionDate: Date | null;
   } | null>(null);
 
+  const isOwner = user?.sub === ownerId;
+
   useEffect(() => {
     const checkDuplicate = async () => {
-      if (user?.sub) {
+      if (user?.sub && !isOwner) {
         const result = await CheckDuplicateSubmission(formUrl, user.sub);
         setDuplicateSubmission(result);
       }
@@ -79,11 +85,10 @@ function FormSubmitComponent({
     if (!isLoading && user) {
       checkDuplicate();
     }
-  }, [user, isLoading, formUrl]);
+  }, [user, isLoading, formUrl, isOwner]);
 
   useEffect(() => {
     if (!isLoading && !user) {
-      // Redirect to login if user is not authenticated
       router.push(
         "/api/auth/login?returnTo=" +
           encodeURIComponent(window.location.pathname)
@@ -227,6 +232,59 @@ function FormSubmitComponent({
             <span className="ml-2">Loading...</span>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  if (isOwner) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        <AnimatePresence mode="wait">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Card className="w-full max-w-md mx-auto shadow-2xl">
+              <CardHeader className="text-center">
+                <CardTitle className="flex items-center justify-center gap-2 text-2xl">
+                  <ShieldCheckIcon className="h-8 w-8 text-primary" />
+                  Form Owner Access
+                </CardTitle>
+                <CardDescription>
+                  You are the owner of this form. You are automatically a member
+                  of this group.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-muted p-4 rounded-md">
+                  <p className="text-sm text-muted-foreground">
+                    As the form owner, you don't need to submit this form. You
+                    can access all group features and content directly.
+                  </p>
+                </div>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={() => window.close()}
+                        className="w-full"
+                        variant="secondary"
+                      >
+                        <Cross2Icon className="mr-2 h-4 w-4" />
+                        Close Window
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Close form window</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </AnimatePresence>
       </div>
     );
   }

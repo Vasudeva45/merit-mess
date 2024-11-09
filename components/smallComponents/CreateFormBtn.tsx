@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,10 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "../ui/dialog";
+} from "@/components/ui/dialog";
 import { ImSpinner2 } from "react-icons/im";
-import { BsFileEarmarkPlus } from "react-icons/bs";
-import { Button } from "../ui/button";
+import { BsFileEarmarkPlus, BsRobot } from "react-icons/bs";
+import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -20,25 +20,22 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../ui/form";
+} from "@/components/ui/form";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../ui/select";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+} from "@/components/ui/select";
 import { useForm } from "react-hook-form";
-import { Input } from "../ui/input";
-import { Textarea } from "../ui/textarea";
-import { CreateForm } from "@/actions/form";
-import { formschema } from "@/schemas/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, Wand2 } from "lucide-react";
 import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
+import { CreateForm } from "@/actions/form";
 
 const STUDY_DOMAINS = [
   "Computer Science (CSE)",
@@ -48,7 +45,7 @@ const STUDY_DOMAINS = [
   "Civil",
   "Information Technology (IT)",
   "Other",
-] as const;
+];
 
 const SPECIALIZATIONS = {
   "Computer Science (CSE)": [
@@ -98,14 +95,13 @@ const SPECIALIZATIONS = {
     "Other",
   ],
   Other: ["Other"],
-} as const;
+};
 
-type formschemaType = z.infer<typeof formschema>;
-
-function CreateFormBtn() {
+const CreateFormBtn = () => {
   const router = useRouter();
-  const form = useForm<formschemaType>({
-    resolver: zodResolver(formschema),
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const form = useForm({
     defaultValues: {
       name: "",
       description: "",
@@ -115,8 +111,49 @@ function CreateFormBtn() {
   });
 
   const watchDomain = form.watch("domain");
+  const watchName = form.watch("name");
 
-  async function onSubmit(values: formschemaType) {
+  const generateDescription = async () => {
+    if (!watchName || !watchDomain) {
+      toast.error("Please enter project name and select domain first", {
+        icon: <ExclamationTriangleIcon />,
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      // Here you would typically make an API call to your backend that interfaces with Google's Generative AI
+      const response = await fetch("/api/generate-description", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          projectName: watchName,
+          domain: watchDomain,
+          specialization: form.watch("specialization"),
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to generate description");
+
+      const data = await response.json();
+      form.setValue("description", data.description);
+
+      toast.success("Description generated!", {
+        icon: <CheckIcon />,
+      });
+    } catch (error) {
+      toast.error("Failed to generate description", {
+        icon: <ExclamationTriangleIcon />,
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const onSubmit = async (values) => {
     try {
       const formId = await CreateForm(values);
       toast.success("Form Created Successfully", {
@@ -126,17 +163,17 @@ function CreateFormBtn() {
       router.push(`/builder/${formId}`);
     } catch (error) {
       toast.error("Something went wrong.", {
-        description: " Please try again later!",
+        description: "Please try again later!",
         icon: <ExclamationTriangleIcon />,
       });
     }
-  }
+  };
 
   return (
     <Dialog>
       <DialogTrigger asChild>
         <Button
-          variant={"outline"}
+          variant="outline"
           className="group border border-primary/20 h-[190px] items-center justify-center flex flex-col hover:border-primary hover:cursor-pointer border-dashed gap-4"
         >
           <BsFileEarmarkPlus className="h-8 w-8 text-muted-foreground group-hover:text-primary" />
@@ -214,9 +251,7 @@ function CreateFormBtn() {
                     </FormControl>
                     <SelectContent>
                       {watchDomain &&
-                        SPECIALIZATIONS[
-                          watchDomain as keyof typeof SPECIALIZATIONS
-                        ].map((specialization) => (
+                        SPECIALIZATIONS[watchDomain].map((specialization) => (
                           <SelectItem
                             key={specialization}
                             value={specialization}
@@ -236,7 +271,24 @@ function CreateFormBtn() {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel className="flex items-center justify-between">
+                    Description
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={generateDescription}
+                      disabled={isGenerating || !watchName || !watchDomain}
+                      className="flex items-center gap-2"
+                    >
+                      {isGenerating ? (
+                        <ImSpinner2 className="animate-spin h-4 w-4" />
+                      ) : (
+                        <Wand2 className="h-4 w-4" />
+                      )}
+                      Generate with AI
+                    </Button>
+                  </FormLabel>
                   <FormControl>
                     <Textarea rows={5} {...field} />
                   </FormControl>
@@ -249,9 +301,7 @@ function CreateFormBtn() {
         <DialogFooter>
           <Button
             type="submit"
-            onClick={() => {
-              form.handleSubmit(onSubmit)();
-            }}
+            onClick={form.handleSubmit(onSubmit)}
             disabled={form.formState.isSubmitting}
             className="w-full mt-4"
           >
@@ -264,6 +314,6 @@ function CreateFormBtn() {
       </DialogContent>
     </Dialog>
   );
-}
+};
 
 export default CreateFormBtn;

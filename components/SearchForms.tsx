@@ -12,12 +12,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { FaWpforms } from "react-icons/fa";
 import { LuView, LuSearch } from "react-icons/lu";
 import { formatDistance } from "date-fns";
 import { HiClock } from "react-icons/hi";
 
-// Types for our form data
+// Updated Form type to include owner information
 type Form = {
   id: number;
   name: string;
@@ -28,6 +29,10 @@ type Form = {
   createdAt: string;
   shareURL: string;
   status: string;
+  owner: {
+    name: string;
+    imageUrl: string | null;
+  } | null;
 };
 
 const SearchBar = ({ onSearch }) => {
@@ -47,7 +52,6 @@ const SearchBar = ({ onSearch }) => {
 };
 
 const FormGrid = ({ forms }: { forms: Form[] }) => {
-  // Filter out closed forms (though they should already be filtered on server)
   const activeForms = forms.filter((form) => form.status !== "closed");
 
   if (!activeForms.length) {
@@ -87,9 +91,22 @@ const FormGrid = ({ forms }: { forms: Form[] }) => {
                 </Badge>
               )}
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <LuView className="w-4 h-4" />
-              {form.visits} views
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={form.owner?.imageUrl || ""} />
+                  <AvatarFallback>
+                    {form.owner?.name?.charAt(0) || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm text-muted-foreground">
+                  {form.owner?.name || "Unknown User"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <LuView className="w-4 h-4" />
+                {form.visits} views
+              </div>
             </div>
           </CardContent>
           <CardFooter className="flex justify-between items-center">
@@ -119,7 +136,6 @@ const FormGrid = ({ forms }: { forms: Form[] }) => {
   );
 };
 
-// Update the search filtering in SearchForms component to include status check
 export function SearchForms({ initialForms }: { initialForms: Form[] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredForms, setFilteredForms] = useState(initialForms);

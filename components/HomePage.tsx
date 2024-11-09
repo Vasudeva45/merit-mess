@@ -3,16 +3,16 @@ import { MdCreateNewFolder } from "react-icons/md";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { SearchForms } from "./SearchForms";
-import { getPublicForms } from "@/actions/form";
+import { getPublicFormsWithOwners } from "@/actions/form";
 import LandingPage from "./LandingPage";
 
 export default async function HomePage({ user }) {
-  const forms = await getPublicForms();
+  const forms = await getPublicFormsWithOwners();
 
   if (!user) {
     return <LandingPage />;
   }
-  // Logged-in user view
+
   return (
     <div className="min-h-screen bg-background">
       <div className="relative">

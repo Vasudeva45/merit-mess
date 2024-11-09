@@ -5,6 +5,22 @@ import { formschema, formschemaType } from "@/schemas/form";
 import { getSession } from "@auth0/nextjs-auth0";
 import { v4 as uuidv4 } from "uuid";
 
+type FormWithOwner = {
+  id: number;
+  name: string;
+  description: string;
+  domain: string;
+  specialization: string;
+  visits: number;
+  createdAt: string;
+  shareURL: string;
+  status: string;
+  owner: {
+    name: string;
+    imageUrl: string | null;
+  } | null;
+};
+
 class UserNotFoundErr extends Error {}
 
 export async function GetFormStats() {
@@ -335,4 +351,57 @@ export async function UpdateFormStatus(id: number, status: string) {
       status,
     },
   });
+}
+
+export async function getPublicFormsWithOwners(): Promise<FormWithOwner[]> {
+  const forms = await prisma.form.findMany({
+    where: { 
+      published: true,
+      NOT: {
+        status: "closed"
+      }
+    },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      domain: true,
+      specialization: true,
+      visits: true,
+      createdAt: true,
+      shareURL: true,
+      status: true,
+      userId: true,
+    },
+  });
+
+  // Fetch all unique user IDs from the forms
+  const userIds = [...new Set(forms.map(form => form.userId))];
+
+  // Fetch all profiles for these users in one query
+  const profiles = await prisma.profile.findMany({
+    where: {
+      userId: {
+        in: userIds,
+      }
+    },
+    select: {
+      userId: true,
+      name: true,
+      imageUrl: true,
+    }
+  });
+
+  // Create a map of userId to profile for efficient lookup
+  const profileMap = new Map(profiles.map(profile => [profile.userId, profile]));
+
+  // Combine form data with owner information
+  const formsWithOwners = forms.map(form => ({
+    ...form,
+    owner: profileMap.get(form.userId) || null,
+    createdAt: form.createdAt.toISOString(), // Convert Date to string for serialization
+  }));
+
+  return formsWithOwners;
 }

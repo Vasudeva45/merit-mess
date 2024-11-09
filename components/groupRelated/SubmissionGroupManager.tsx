@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { createProjectGroup } from "@/actions/group";
+import { createProjectGroup, updateGroupMember } from "@/actions/group";
 import { Ban, Lock } from "lucide-react";
 import {
   AlertDialog,

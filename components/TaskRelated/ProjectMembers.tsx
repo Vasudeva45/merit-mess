@@ -51,12 +51,19 @@ const ProjectMembers = ({ members }) => {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center space-x-2">
-                    <img
-                      src={profile?.imageUrl || "/placeholder.png"}
-                      alt={member.profile.name}
-                      className="h-8 w-8 rounded-full"
-                    />
-                    <span>{member.profile.name}</span>
+                    <a
+                      href={`/publicprofile/${encodeURIComponent(
+                        member.userId
+                      )}`}
+                      className="flex items-center space-x-2 hover:text-primary transition-colors"
+                    >
+                      <img
+                        src={profile?.imageUrl || "/placeholder.png"}
+                        alt={member.profile.name}
+                        className="h-8 w-8 rounded-full"
+                      />
+                      <span>{member.profile.name}</span>
+                    </a>
                     {member.role === "owner" && (
                       <TooltipProvider>
                         <Tooltip>

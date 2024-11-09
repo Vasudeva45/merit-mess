@@ -246,7 +246,12 @@ const SubmissionGroupManager = ({
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center space-x-2">
+                        <a
+                          href={`/publicprofile/${encodeURIComponent(
+                            submission.userId
+                          )}`}
+                          className="flex items-center space-x-2 hover:text-primary transition-colors"
+                        >
                           <img
                             src={profile?.imageUrl || "/placeholder.png"}
                             alt={profile?.name || ""}
@@ -268,7 +273,7 @@ const SubmissionGroupManager = ({
                               {profile?.bio}
                             </span>
                           </div>
-                        </div>
+                        </a>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">

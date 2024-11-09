@@ -135,6 +135,75 @@ export async function getProfilesByIds(userIds: string[]) {
   }
 }
 
+export async function getPublicProfile(userId: string) {
+  try {
+    // Add console.log to debug the userId being received
+    console.log("Fetching profile for userId:", userId);
+
+    const profile = await prisma.profile.findUnique({
+      where: {
+        userId: userId,
+      },
+      include: {
+        submissions: {
+          select: {
+            createdAt: true,
+            form: {
+              select: {
+                name: true,
+                domain: true,
+                specialization: true,
+              },
+            },
+          },
+        },
+        groupMembers: {
+          include: {
+            group: {
+              select: {
+                name: true,
+                description: true,
+                status: true,
+              },
+            },
+          },
+        },
+        assignedTasks: {
+          where: {
+            status: "completed",
+          },
+          select: {
+            title: true,
+            description: true,
+            group: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    console.log("Found profile:", profile ? "yes" : "no");
+
+    if (!profile) {
+      console.log("No profile found for userId:", userId);
+      return null;
+    }
+
+    return {
+      ...profile,
+      skills: profile.skills || [],
+      achievements: profile.achievements || [],
+      ongoing_projects: profile.ongoing_projects || [],
+    };
+  } catch (error) {
+    console.error("Error in getPublicProfile:", error);
+    throw error;
+  }
+}
+
 export async function formatValidationErrors(error: ValidationError) {
   return Object.entries(error.errors).reduce((acc, [field, messages]) => {
     acc[field] = messages.join(", ");

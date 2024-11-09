@@ -313,11 +313,11 @@ export async function GetFormWithSubmissions(id: number) {
 export async function getPublicForms() {
   "use server";
   const forms = await prisma.form.findMany({
-    where: { 
+    where: {
       published: true,
       NOT: {
-        status: "closed"
-      }
+        status: "closed",
+      },
     },
     orderBy: { createdAt: "desc" },
     select: {
@@ -356,11 +356,11 @@ export async function UpdateFormStatus(id: number, status: string) {
 
 export async function getPublicFormsWithOwners(): Promise<FormWithOwner[]> {
   const forms = await prisma.form.findMany({
-    where: { 
+    where: {
       published: true,
       NOT: {
-        status: "closed"
-      }
+        status: "closed",
+      },
     },
     orderBy: { createdAt: "desc" },
     select: {
@@ -378,27 +378,29 @@ export async function getPublicFormsWithOwners(): Promise<FormWithOwner[]> {
   });
 
   // Fetch all unique user IDs from the forms
-  const userIds = [...new Set(forms.map(form => form.userId))];
+  const userIds = [...new Set(forms.map((form) => form.userId))];
 
   // Fetch all profiles for these users in one query
   const profiles = await prisma.profile.findMany({
     where: {
       userId: {
         in: userIds,
-      }
+      },
     },
     select: {
       userId: true,
       name: true,
       imageUrl: true,
-    }
+    },
   });
 
   // Create a map of userId to profile for efficient lookup
-  const profileMap = new Map(profiles.map(profile => [profile.userId, profile]));
+  const profileMap = new Map(
+    profiles.map((profile) => [profile.userId, profile])
+  );
 
   // Combine form data with owner information
-  const formsWithOwners = forms.map(form => ({
+  const formsWithOwners = forms.map((form) => ({
     ...form,
     owner: profileMap.get(form.userId) || null,
     createdAt: form.createdAt.toISOString(), // Convert Date to string for serialization

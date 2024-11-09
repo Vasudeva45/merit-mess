@@ -29,6 +29,7 @@ type Form = {
   createdAt: string;
   shareURL: string;
   status: string;
+  userId: string;
   owner: {
     name: string;
     imageUrl: string | null;
@@ -93,15 +94,20 @@ const FormGrid = ({ forms }: { forms: Form[] }) => {
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={form.owner?.imageUrl || ""} />
-                  <AvatarFallback>
-                    {form.owner?.name?.charAt(0) || "U"}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-sm text-muted-foreground">
-                  {form.owner?.name || "Unknown User"}
-                </span>
+                <a
+                  href={`/publicprofile/${encodeURIComponent(form.userId)}`}
+                  className="flex items-center gap-2 hover:text-primary transition-colors"
+                >
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={form.owner?.imageUrl || ""} />
+                    <AvatarFallback>
+                      {form.owner?.name?.charAt(0) || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm text-muted-foreground hover:text-primary">
+                    {form.owner?.name || "Unknown User"}
+                  </span>
+                </a>
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <LuView className="w-4 h-4" />

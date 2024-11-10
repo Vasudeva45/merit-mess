@@ -1,11 +1,11 @@
 "use client";
 
-import React from 'react';
+import React from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { redirect } from "next/navigation";
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { GraduationCap } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { GraduationCap } from "lucide-react";
 
 export default function MentorsPage() {
   const { user, isLoading } = useUser();
@@ -19,7 +19,7 @@ export default function MentorsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Find a Mentor</h1>
       </div>
-      
+
       <div className="grid gap-6 md:grid-cols-3">
         {[1, 2, 3].map((mentor) => (
           <Card key={mentor}>
@@ -30,15 +30,20 @@ export default function MentorsPage() {
                 </div>
                 <div>
                   <CardTitle>Mentor {mentor}</CardTitle>
-                  <p className="text-sm text-muted-foreground">Senior Developer</p>
+                  <p className="text-sm text-muted-foreground">
+                    Senior Developer
+                  </p>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                Experienced in web development, cloud architecture, and system design.
+                Experienced in web development, cloud architecture, and system
+                design.
               </p>
-              <Button variant="secondary" className="w-full">View Profile</Button>
+              <Button variant="secondary" className="w-full">
+                View Profile
+              </Button>
             </CardContent>
           </Card>
         ))}

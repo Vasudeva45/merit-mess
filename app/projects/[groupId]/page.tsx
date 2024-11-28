@@ -5,6 +5,7 @@ import DiscussionBoard from "@/components/TaskRelated/DiscussionBoard";
 import ProjectFiles from "@/components/TaskRelated/ProjectFiles";
 import ProjectMembers from "@/components/TaskRelated/ProjectMembers";
 import TaskBoard from "@/components/TaskRelated/TaskBoard";
+import CalendarView from "@/components/TaskRelated/CalendarView"; // New import
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
@@ -98,11 +99,12 @@ export default function ProjectRoom() {
         onValueChange={setActiveTab}
         className="space-y-4"
       >
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="discussions">Discussions</TabsTrigger>
           <TabsTrigger value="members">Members</TabsTrigger>
           <TabsTrigger value="files">Files</TabsTrigger>
+          <TabsTrigger value="calendar">Calendar</TabsTrigger>
         </TabsList>
 
         <TabsContent value="tasks" className="space-y-4">
@@ -136,6 +138,10 @@ export default function ProjectRoom() {
             groupId={groupId}
             onUpdate={fetchProjectData}
           />
+        </TabsContent>
+
+        <TabsContent value="calendar" className="space-y-4">
+          <CalendarView tasks={projectData?.tasks || []} />
         </TabsContent>
       </Tabs>
     </div>

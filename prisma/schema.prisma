@@ -71,6 +71,24 @@ model Profile {
 
   // Relation for mentored projects/teams
   mentoredGroups   ProjectGroup[]   @relation("MentorToProjectGroups")
+  
+  mentorRequests       MentorshipRequest[] @relation("MentorRequests")
+  requestedMentorships MentorshipRequest[] @relation("RequestedMentorships")
+}
+
+model MentorshipRequest {
+  id             Int          @id @default(autoincrement())
+  mentorId       String
+  projectGroupId Int
+  requesterId    String
+  status         String       @default("pending") // pending, accepted, rejected
+  message        String?      @db.Text
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  mentor        Profile      @relation("MentorRequests", fields: [mentorId], references: [userId])
+  projectGroup  ProjectGroup @relation(fields: [projectGroupId], references: [id])
+  requester     Profile      @relation("RequestedMentorships", fields: [requesterId], references: [userId])
 }
 
 model ProjectGroup {
@@ -90,6 +108,7 @@ model ProjectGroup {
   discussions  Discussion[]
   files        ProjectFile[]
   status       String        @default("active")
+  mentorshipRequests   MentorshipRequest[]
 }
 
 model GroupMember {

@@ -1,8 +1,22 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   GraduationCap,
   Star,
@@ -15,15 +29,28 @@ import {
   BookOpen,
 } from "lucide-react";
 
+import {
+  createMentorshipRequest,
+  getMyProjectGroups,
+} from "@/actions/mentorship";
+import { toast } from "sonner";
+
 export default function MentorProfilePage({
   params,
 }: {
   params: { userId: string };
 }) {
-  const [mentor, setMentor] = React.useState(null);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState(null);
+  const [mentor, setMentor] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
+  // Mentorship Request State
+  const [projectGroups, setProjectGroups] = useState([]);
+  const [selectedProjectGroup, setSelectedProjectGroup] = useState(null);
+  const [mentorshipMessage, setMentorshipMessage] = useState("");
+  const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
+
+  // Fetch mentor profile on component mount
   React.useEffect(() => {
     const fetchMentorProfile = async () => {
       try {
@@ -33,9 +60,9 @@ export default function MentorProfilePage({
         }
         const data = await response.json();
         setMentor(data);
+        setLoading(false);
       } catch (err) {
         setError(err.message);
-      } finally {
         setLoading(false);
       }
     };
@@ -43,6 +70,57 @@ export default function MentorProfilePage({
     fetchMentorProfile();
   }, [params.userId]);
 
+  const openMentorshipRequestDialog = async () => {
+    try {
+      const groups = await getMyProjectGroups();
+      setProjectGroups(groups);
+      setIsRequestDialogOpen(true);
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch project groups",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle mentorship request submission
+  const handleOrderMentorship = async () => {
+    if (!selectedProjectGroup) {
+      toast({
+        title: "Error",
+        description: "Please select a project group",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const request = await createMentorshipRequest({
+        mentorId: params.userId,
+        projectGroupId: selectedProjectGroup,
+        message: mentorshipMessage,
+      });
+
+      toast({
+        title: "Success",
+        description: "Mentorship request sent successfully",
+        variant: "default",
+      });
+
+      setIsRequestDialogOpen(false);
+      setSelectedProjectGroup(null);
+      setMentorshipMessage("");
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Loading and error states
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -52,23 +130,11 @@ export default function MentorProfilePage({
   }
 
   if (error) {
-    return (
-      <Card className="m-4">
-        <CardContent className="p-6">
-          <p className="text-red-500">Error: {error}</p>
-        </CardContent>
-      </Card>
-    );
+    return <div className="text-center text-red-500 p-6">{error}</div>;
   }
 
   if (!mentor) {
-    return (
-      <Card className="m-4">
-        <CardContent className="p-6">
-          <p className="text-center">Mentor profile not found</p>
-        </CardContent>
-      </Card>
-    );
+    return <div className="text-center p-6">Mentor profile not found</div>;
   }
 
   return (
@@ -214,6 +280,64 @@ export default function MentorProfilePage({
           </CardContent>
         </Card>
       )}
+      <Card>
+        <CardHeader>
+          <CardTitle>Mentorship</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={openMentorshipRequestDialog}>
+            Request Mentorship
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Mentorship Request Dialog */}
+      <Dialog open={isRequestDialogOpen} onOpenChange={setIsRequestDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Request Mentorship</DialogTitle>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Select
+                onValueChange={(value) =>
+                  setSelectedProjectGroup(Number(value))
+                }
+              >
+                <SelectTrigger className="col-span-4">
+                  <SelectValue placeholder="Select a Project Group" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projectGroups.map((group) => (
+                    <SelectItem key={group.id} value={group.id.toString()}>
+                      {group.name}
+                      {group.form?.name && ` (${group.form.name})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Textarea
+                className="col-span-4"
+                placeholder="Write a message to the mentor (optional)"
+                value={mentorshipMessage}
+                onChange={(e) => setMentorshipMessage(e.target.value)}
+              />
+            </div>
+
+            <Button
+              onClick={handleOrderMentorship}
+              disabled={!selectedProjectGroup}
+              className="w-full"
+            >
+              Send Mentorship Request
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -53,12 +53,24 @@ model Profile {
   skills          String[]          @default([])
   achievements    String[]          @default([])
   ongoing_projects Json[]           @default([])
+  
+  // New mentor-specific fields
+  mentorExpertise  String[]         @default([]) // Areas of expertise for mentors
+  yearsOfExperience Int?             // Professional experience years
+  availableForMentorship Boolean     @default(false)
+  mentoredProjects  Json[]           @default([]) // Projects mentored
+  mentorRating      Float?           @default(0.0)
+  certifications    String[]         @default([])
+
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   submissions     FormSubmissions[]
   groupMembers    GroupMember[]     @relation("ProfileToGroupMember")
   assignedTasks   Task[]            @relation("AssignedTo")
   comments        Comment[]
+
+  // Relation for mentored projects/teams
+  mentoredGroups   ProjectGroup[]   @relation("MentorToProjectGroups")
 }
 
 model ProjectGroup {
@@ -70,6 +82,8 @@ model ProjectGroup {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   ownerId      String
+  mentor       Profile?     @relation(fields: [mentorId], references: [userId], name: "MentorToProjectGroups")
+  mentorId     String?      // Optional field to link to mentor
   members      GroupMember[]
   form         Form         @relation(fields: [formId], references: [id])
   tasks        Task[]

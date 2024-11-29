@@ -28,11 +28,12 @@ import {
   Edit3,
   ExternalLink,
   Clock,
+  Star,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import isEqual from "lodash/isEqual";
-import ImageUpload from './ImageUpload';
-
+import ImageUpload from "./ImageUpload";
+import { Certificate } from "crypto";
 
 interface Project {
   name: string;
@@ -52,8 +53,17 @@ interface Profile {
   bio?: string;
   skills: string[];
   ongoing_projects: Project[];
+  mentorDetails?: MentorDetails;
 }
 
+interface MentorDetails {
+  expertise?: string[];
+  yearsOfExperience?: number;
+  availableForMentorship?: boolean;
+  mentoredProjects?: Project[];
+  mentorRating?: number;
+  certifications?: string[];
+}
 interface ProfileSliderProps {
   profile: Profile;
   onSave: (data: Profile) => Promise<void>;
@@ -102,16 +112,67 @@ const LoadingProfile = () => (
 
 const ProfileSlider: React.FC<ProfileSliderProps> = ({ profile, onSave }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState<Profile>(profile);
+  const [formData, setFormData] = useState<Profile>({
+    ...profile,
+    mentorDetails:
+      profile.type === "mentor"
+        ? {
+            expertise: profile.mentorExpertise || [],
+            yearsOfExperience: profile.yearsOfExperience,
+            availableForMentorship: profile.availableForMentorship || false,
+            certifications: profile.certifications || [],
+            mentorRating: profile.mentorRating,
+            mentoredProjects: profile.mentoredProjects || [],
+          }
+        : undefined,
+  });
   const [newSkill, setNewSkill] = useState("");
   const [newProject, setNewProject] = useState<Project>({
     name: "",
     description: "",
     status: "planning",
   });
+  const [newCertification, setNewCertification] = useState("");
+  const [newExpertise, setNewExpertise] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const hasChanges = !isEqual(profile, formData);
+
+  const handleImageUpload = async (file: File) => {
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upload image");
+      }
+
+      const { imageUrl } = await response.json();
+
+      // Update local state
+      setFormData((prev) => ({ ...prev, imageUrl }));
+
+      // Immediately save to database
+      await onSave({ ...formData, imageUrl });
+
+      toast({
+        title: "Success",
+        description: "Profile picture updated successfully",
+      });
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to upload image",
+        variant: "destructive",
+      });
+    }
+  };
 
   const addSkill = () => {
     if (newSkill.trim() && !formData.skills.includes(newSkill.trim())) {
@@ -120,42 +181,6 @@ const ProfileSlider: React.FC<ProfileSliderProps> = ({ profile, onSave }) => {
         skills: [...prev.skills, newSkill.trim()],
       }));
       setNewSkill("");
-    }
-  };
-
-  const handleImageUpload = async (file: File) => {
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
-  
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-  
-      if (!response.ok) {
-        throw new Error('Failed to upload image');
-      }
-  
-      const { imageUrl } = await response.json();
-      
-      // Update local state
-      setFormData(prev => ({ ...prev, imageUrl }));
-      
-      // Immediately save to database
-      await onSave({ ...formData, imageUrl });
-  
-      toast({
-        title: "Success",
-        description: "Profile picture updated successfully",
-      });
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to upload image",
-        variant: "destructive",
-      });
     }
   };
 
@@ -211,6 +236,64 @@ const ProfileSlider: React.FC<ProfileSliderProps> = ({ profile, onSave }) => {
     }
   };
 
+  const addExpertise = () => {
+    if (newExpertise.trim()) {
+      setFormData((prev) => ({
+        ...prev,
+        mentorDetails: {
+          ...prev.mentorDetails,
+          expertise: [
+            ...(prev.mentorDetails?.expertise || []),
+            newExpertise.trim(),
+          ],
+        },
+      }));
+      setNewExpertise("");
+    }
+  };
+
+  const removeExpertise = (expertiseToRemove: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      mentorDetails: {
+        ...prev.mentorDetails,
+        expertise:
+          prev.mentorDetails?.expertise?.filter(
+            (exp) => exp !== expertiseToRemove
+          ) || [],
+      },
+    }));
+  };
+
+  const addCertification = () => {
+    if (newCertification.trim()) {
+      setFormData((prev) => ({
+        ...prev,
+        mentorDetails: {
+          ...prev.mentorDetails,
+          certifications: [
+            ...(prev.mentorDetails?.certifications || []),
+            newCertification.trim(),
+          ],
+        },
+      }));
+      setNewCertification("");
+    }
+  };
+
+  const removeCertification = (certToRemove: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      mentorDetails: {
+        ...prev.mentorDetails,
+        certifications:
+          prev.mentorDetails?.certifications?.filter(
+            (cert) => cert !== certToRemove
+          ) || [],
+      },
+    }));
+  };
+
   return (
     <div className="min-h-screen p-6">
       <AnimatePresence mode="wait">
@@ -224,9 +307,9 @@ const ProfileSlider: React.FC<ProfileSliderProps> = ({ profile, onSave }) => {
         >
           {/* Profile Header */}
           <ImageUpload
-              onUpload={handleImageUpload}
-              imageUrl={formData.imageUrl}
-            />
+            onUpload={handleImageUpload}
+            imageUrl={formData.imageUrl}
+          />
           <motion.div
             className="text-center mb-8"
             initial={{ y: -20 }}
@@ -380,6 +463,80 @@ const ProfileSlider: React.FC<ProfileSliderProps> = ({ profile, onSave }) => {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Mentor Details Section */}
+                {profile.type === "mentor" && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Mentor Profile</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Years of Experience */}
+                      {profile.yearsOfExperience !== null &&
+                        profile.yearsOfExperience !== undefined && (
+                          <div className="flex items-center gap-3">
+                            <Star className="h-5 w-5 text-primary" />
+                            <span>
+                              {profile.yearsOfExperience} Years of Professional
+                              Experience
+                            </span>
+                          </div>
+                        )}
+
+                      {/* Mentorship Availability */}
+                      <div className="flex items-center gap-3">
+                        <Clock className="h-5 w-5 text-primary" />
+                        <span>
+                          Available for Mentorship:{" "}
+                          {profile.availableForMentorship ? "Yes" : "No"}
+                        </span>
+                      </div>
+
+                      {/* Areas of Expertise */}
+                      {profile.mentorExpertise &&
+                        profile.mentorExpertise.length > 0 && (
+                          <div>
+                            <h4 className="text-md font-semibold mb-2 flex items-center">
+                              <Star className="h-5 w-5 mr-2 text-primary" />
+                              Areas of Expertise
+                            </h4>
+                            <div className="flex flex-wrap gap-2">
+                              {profile.mentorExpertise.map((exp) => (
+                                <Badge
+                                  key={exp}
+                                  variant="secondary"
+                                  className="px-3 py-1"
+                                >
+                                  {exp}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                      {/* Certifications */}
+                      {profile.certifications &&
+                        profile.certifications.length > 0 && (
+                          <div>
+                            <h4 className="text-md font-semibold mb-2 flex items-center">
+                              Professional Certifications
+                            </h4>
+                            <div className="flex flex-wrap gap-2">
+                              {profile.certifications.map((cert) => (
+                                <Badge
+                                  key={cert}
+                                  variant="secondary"
+                                  className="px-3 py-1"
+                                >
+                                  {cert}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                    </CardContent>
+                  </Card>
+                )}
               </motion.div>
             </div>
           ) : (
@@ -428,8 +585,20 @@ const ProfileSlider: React.FC<ProfileSliderProps> = ({ profile, onSave }) => {
                       </label>
                       <Select
                         value={formData.type}
-                        onValueChange={(value) =>
-                          setFormData((prev) => ({ ...prev, type: value }))
+                        onValueChange={(value: "student" | "mentor") =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            type: value,
+                            mentorDetails:
+                              value === "mentor"
+                                ? {
+                                    expertise: [],
+                                    yearsOfExperience: undefined,
+                                    availableForMentorship: false,
+                                    certifications: [],
+                                  }
+                                : undefined,
+                          }))
                         }
                       >
                         <SelectTrigger className="mb-4">
@@ -652,6 +821,149 @@ const ProfileSlider: React.FC<ProfileSliderProps> = ({ profile, onSave }) => {
                         </Card>
                       ))}
                     </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {isEditing && formData.type === "mentor" && (
+            <Card className="mt-6">
+              <CardContent className="p-6">
+                {/* Years of Experience */}
+                <div className="mb-4">
+                  <label className="text-sm font-medium mb-1 block">
+                    Years of Experience
+                  </label>
+                  <Input
+                    type="number"
+                    value={formData.mentorDetails?.yearsOfExperience || ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        mentorDetails: {
+                          ...prev.mentorDetails,
+                          yearsOfExperience: e.target.value
+                            ? parseInt(e.target.value)
+                            : undefined,
+                        },
+                      }))
+                    }
+                    placeholder="Enter years of experience"
+                    className="mb-2"
+                  />
+                </div>
+
+                {/* Availability for Mentorship */}
+                <div className="mb-4">
+                  <label className="text-sm font-medium mb-1 block">
+                    Available for Mentorship
+                  </label>
+                  <Select
+                    value={
+                      formData.mentorDetails?.availableForMentorship?.toString() ||
+                      "false"
+                    }
+                    onValueChange={(value) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        mentorDetails: {
+                          ...prev.mentorDetails,
+                          availableForMentorship: value === "true",
+                        },
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select availability" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="true">Yes</SelectItem>
+                      <SelectItem value="false">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Expertise */}
+                <div className="mb-4">
+                  <label className="text-sm font-medium mb-1 block">
+                    Areas of Expertise
+                  </label>
+                  <div className="flex gap-2 mb-2">
+                    <Input
+                      value={newExpertise}
+                      onChange={(e) => setNewExpertise(e.target.value)}
+                      placeholder="Add expertise"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addExpertise();
+                        }
+                      }}
+                    />
+                    <Button onClick={addExpertise} size="icon">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.mentorDetails?.expertise?.map((exp) => (
+                      <Badge
+                        key={exp}
+                        variant="secondary"
+                        className="gap-1 px-3 py-1"
+                      >
+                        {exp}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-4 p-0 hover:bg-transparent"
+                          onClick={() => removeExpertise(exp)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Certifications */}
+                <div className="mb-4">
+                  <label className="text-sm font-medium mb-1 block">
+                    Certifications
+                  </label>
+                  <div className="flex gap-2 mb-2">
+                    <Input
+                      value={newCertification}
+                      onChange={(e) => setNewCertification(e.target.value)}
+                      placeholder="Add certification"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addCertification();
+                        }
+                      }}
+                    />
+                    <Button onClick={addCertification} size="icon">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.mentorDetails?.certifications?.map((cert) => (
+                      <Badge
+                        key={cert}
+                        variant="secondary"
+                        className="gap-1 px-3 py-1"
+                      >
+                        {cert}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-4 p-0 hover:bg-transparent"
+                          onClick={() => removeCertification(cert)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </Badge>
+                    ))}
                   </div>
                 </div>
               </CardContent>

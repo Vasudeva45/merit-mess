@@ -8,6 +8,7 @@ import {
   profileUpdateSchema,
   type ProfileFormData,
   type ProfileUpdateData,
+  type MentorDetails,
 } from "@/schemas/profile";
 
 class UserNotFoundErr extends Error {}
@@ -36,12 +37,13 @@ export async function getProfile() {
     if (!profile) {
       const defaultProfile: ProfileFormData = {
         name: user.name || "",
-        imageUrl: "", // Ensure this is included
+        imageUrl: "",
         type: "student",
         email: user.email || "",
         skills: [],
         achievements: [],
         ongoing_projects: [],
+        // Optional mentor details can be omitted for default student profile
       };
 
       const validation = profileSchema.safeParse(defaultProfile);
@@ -54,6 +56,9 @@ export async function getProfile() {
         data: {
           userId: user.sub,
           ...defaultProfile,
+          mentorExpertise: [], // Ensure these match Prisma schema
+          mentoredProjects: [],
+          certifications: [],
         },
       });
 
@@ -74,47 +79,65 @@ export async function getProfile() {
   }
 }
 
-export async function updateProfile(formData: ProfileUpdateData) {
+export async function updateProfile(
+  formData: z.infer<typeof profileUpdateSchema>
+) {
   try {
     const session = await getSession();
     const user = session?.user;
 
     if (!user || !user.sub) {
-      throw new UserNotFoundErr();
+      throw new Error("User not found");
     }
 
     const validation = profileUpdateSchema.safeParse(formData);
 
     if (!validation.success) {
-      throw new ValidationError(validation.error.flatten().fieldErrors);
+      throw new Error(JSON.stringify(validation.error.flatten().fieldErrors));
     }
 
+    // Separate mentor-specific fields
+    const {
+      mentorDetails,
+      type,
+      ongoing_projects,
+      skills,
+      ...otherProfileData
+    } = validation.data;
+
+    const updateData = {
+      ...otherProfileData,
+      type,
+      skills: skills || [],
+      ongoing_projects: ongoing_projects as any,
+
+      // Explicitly map mentor-specific fields
+      mentorExpertise: type === "mentor" ? mentorDetails?.expertise || [] : [],
+      yearsOfExperience:
+        type === "mentor" ? mentorDetails?.yearsOfExperience : null,
+      availableForMentorship:
+        type === "mentor"
+          ? mentorDetails?.availableForMentorship ?? false
+          : false,
+      certifications:
+        type === "mentor" ? mentorDetails?.certifications || [] : [],
+    };
+
     const updatedProfile = await prisma.profile.upsert({
-      where: {
-        userId: user.sub,
-      },
-      update: {
-        ...validation.data,
-        ongoing_projects: validation.data.ongoing_projects as any,
-      },
+      where: { userId: user.sub },
+      update: updateData,
       create: {
         userId: user.sub,
-        ...validation.data,
-        ongoing_projects: validation.data.ongoing_projects as any,
+        ...updateData,
       },
     });
 
+    console.log("Updated Profile:", JSON.stringify(updatedProfile, null, 2));
     revalidatePath("/profile");
     return { success: true, data: updatedProfile };
   } catch (error) {
-    if (error instanceof UserNotFoundErr) {
-      return { success: false, error: "User not found" };
-    }
-    if (error instanceof ValidationError) {
-      return { success: false, error: formatValidationErrors(error) };
-    }
     console.error("Error updating profile:", error);
-    return { success: false, error: "Failed to update profile" };
+    throw new Error("Failed to update profile");
   }
 }
 

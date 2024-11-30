@@ -6,23 +6,28 @@ import ProjectFiles from "@/components/TaskRelated/ProjectFiles";
 import ProjectMembers from "@/components/TaskRelated/ProjectMembers";
 import TaskBoard from "@/components/TaskRelated/TaskBoard";
 import CalendarView from "@/components/TaskRelated/CalendarView"; // New import
+import MentorCard from "@/components/TaskRelated/MentorCard";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useUser } from "@auth0/nextjs-auth0/client";
+import { Button } from "@/components/ui/button";
 
 const MAX_DESCRIPTION_LENGTH = 50;
 
 export default function ProjectRoom() {
   const params = useParams();
   const groupId = Number(params.groupId);
+  const { user } = useUser();
   const [projectData, setProjectData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("tasks");
   const [newStatus, setNewStatus] = useState(projectData?.status || "active");
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const isMentor = user?.sub && projectData?.mentorId === user.sub;
 
   useEffect(() => {
     fetchProjectData();
@@ -39,6 +44,18 @@ export default function ProjectRoom() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const renderMentorActions = () => {
+    if (!isMentor) return null;
+
+    return (
+      <div className="flex space-x-2 mb-4">
+        <Button variant="outline">Review All Tasks</Button>
+        <Button variant="outline">Schedule Team Meeting</Button>
+        <Button variant="outline">Share Resources</Button>
+      </div>
+    );
   };
 
   const updateProjectStatusHandler = async () => {
@@ -117,6 +134,15 @@ export default function ProjectRoom() {
           </select>
         </div>
       </div>
+
+      {projectData?.mentor && (
+        <MentorCard
+          mentor={projectData.mentor}
+          isMentor={isMentor}
+          projectHasMentor={Boolean(projectData.mentorId)}
+        />
+      )}
+      {renderMentorActions()}
 
       <Tabs
         value={activeTab}

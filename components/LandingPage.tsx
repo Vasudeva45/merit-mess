@@ -1,169 +1,315 @@
-import React from "react";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
+"use client";
+
+import React, { useEffect, useState } from "react";
 import {
   Users,
   Rocket,
-  GraduationCap,
-  Trophy
+  BookOpen,
+  CheckCircle,
+  Globe,
+  Star,
+  Award,
+  Zap,
+  Lock,
+  Share2,
+  Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getPublicProjects } from "@/actions/group";
 
-const LandingPage = async () => {
-  const featuredProjects = [
-    {
-      id: 1,
-      title: "Local Beach Cleanup Drive",
-      category: "Environmental",
-      teamSize: "4-6 members",
-      description: "Organizing monthly beach cleanups with local youth groups. Looking for passionate environmentalists!",
-      mentorAvailable: true
-    },
-    {
-      id: 2,
-      title: "Coding Workshop Series",
-      category: "Education",
-      teamSize: "3-4 members",
-      description: "Teaching basic programming to middle school students. Need curriculum designers and instructors.",
-      mentorAvailable: true
-    },
-    {
-      id: 3,
-      title: "Community Art Festival",
-      category: "Arts & Culture",
-      teamSize: "5-8 members",
-      description: "Planning a weekend art festival showcasing young local artists. Seeking event organizers and coordinators.",
-      mentorAvailable: false
+const truncateDescription = (description, maxLength = 100) => {
+  if (description.length <= maxLength) return description;
+  return description.substring(0, maxLength) + "...";
+};
+
+const LandingPage = () => {
+  const [activeTab, setActiveTab] = useState("projects");
+  const [publicProjects, setPublicProjects] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchProjects() {
+      try {
+        const projects = await getPublicProjects();
+        setPublicProjects(projects);
+        setIsLoading(false);
+      } catch (error) {
+        console.error("Failed to fetch projects", error);
+        setIsLoading(false);
+      }
     }
+    fetchProjects();
+  }, []);
+
+  const projectCategories = [
+    {
+      name: "All Projects",
+      projects: publicProjects,
+    },
+  ];
+
+  const collaborationSteps = [
+    {
+      icon: Rocket,
+      title: "Ideate",
+      description:
+        "Develop your unique project concept with structured guidance and brainstorming tools.",
+    },
+    {
+      icon: Users,
+      title: "Assemble",
+      description:
+        "Find and connect with talented teammates who complement your skills and vision.",
+    },
+    {
+      icon: BookOpen,
+      title: "Learn & Grow",
+      description:
+        "Access mentorship, skill-building resources, and collaborative frameworks.",
+    },
+    {
+      icon: Target,
+      title: "Impact",
+      description:
+        "Execute your project, track milestones, and create meaningful community change.",
+    },
+  ];
+
+  const platformFeatures = [
+    {
+      icon: Users,
+      title: "Dynamic Team Formation",
+      description:
+        "Advanced matching algorithm connects you with ideal teammates based on skills, interests, and project goals.",
+      details: [
+        "Skill-based matching",
+        "Interest alignment",
+        "Collaborative profile building",
+      ],
+    },
+    {
+      icon: Award,
+      title: "Mentorship Ecosystem",
+      description:
+        "Connect with experienced professionals who provide personalized guidance and industry insights.",
+      details: [
+        "Professional mentor network",
+        "Structured mentorship programs",
+        "Skill development tracking",
+      ],
+    },
+    {
+      icon: Zap,
+      title: "Project Management",
+      description:
+        "Integrated tools to streamline collaboration, track progress, and manage project lifecycles.",
+      details: [
+        "Task assignment",
+        "Progress tracking",
+        "Communication channels",
+      ],
+    },
+    {
+      icon: Share2,
+      title: "Knowledge Sharing",
+      description:
+        "Build a collaborative learning environment with resources, workshops, and peer-to-peer support.",
+      details: [
+        "Resource libraries",
+        "Workshop scheduling",
+        "Community forums",
+      ],
+    },
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="relative min-h-screen">
+      {/* Navigation */}
+      <header className="absolute top-0 left-0 right-0 z-10">
+        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="text-2xl font-bold">MeritMess</div>
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" asChild>
+              <a href="/api/auth/login">Sign In</a>
+            </Button>
+            <Button asChild>
+              <a href="/api/auth/signup">Sign Up</a>
+            </Button>
+          </div>
+        </div>
+      </header>
+
       {/* Hero Section */}
-      <div className="relative overflow-hidden bg-gradient-to-b from-primary/10 to-background">
-        <div className="container mx-auto px-4 py-24">
-          <div className="text-center space-y-8 max-w-4xl mx-auto">
-            <div className="flex justify-center mb-8">
-              <Rocket className="h-20 w-20 text-primary animate-bounce" />
-            </div>
-            <h1 className="text-6xl font-bold tracking-tight">
-              Turn Your Ideas Into Impact
-            </h1>
-            <p className="text-xl text-muted-foreground">
-              Join MeritMess - where young changemakers connect, collaborate, and create meaningful projects. 
-              Find your team, get mentored, and make a difference.
-            </p>
-            <div className="flex justify-center gap-4">
-              <Button size="lg" asChild>
-                <a href="/api/auth/login">Start Your Project</a>
-              </Button>
-              <Button size="lg" variant="outline" asChild>
-                <a href="#explore">Explore Projects</a>
-              </Button>
-            </div>
+      <div className="container mx-auto px-6 py-24 grid md:grid-cols-2 gap-12 items-center pt-36">
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <Globe className="w-10 h-10 animate-pulse" />
+            <span className="text-sm uppercase tracking-wide">
+              Collaborative Innovation Platform
+            </span>
           </div>
+          <h1 className="text-5xl font-bold leading-tight">
+            Transform Ideas into Collective Impact
+          </h1>
+          <p className="text-xl opacity-70">
+            MeritMess empowers young innovators to collaborate, learn, and
+            create projects that solve real-world challenges through
+            community-driven innovation.
+          </p>
+          <div className="flex gap-4">
+            <Button size="lg" asChild>
+              <a href="/api/auth/signup">Start Your Project</a>
+            </Button>
+            <Button variant="outline" size="lg" asChild>
+              <a href="#projects">Explore Opportunities</a>
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          {collaborationSteps.map((step, index) => (
+            <Card
+              key={index}
+              className="border-dashed hover:border-solid transition-all hover:shadow-lg"
+            >
+              <CardHeader className="pb-2">
+                <step.icon className="w-10 h-10 opacity-70" />
+              </CardHeader>
+              <CardContent>
+                <h3 className="font-bold mb-2">{step.title}</h3>
+                <p className="text-sm opacity-60">{step.description}</p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
 
-      {/* Features Section */}
-      <div id="features" className="py-24 bg-background">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-16">
-            Your Journey to Success
+      {/* Project Discovery */}
+      <div id="projects" className="container mx-auto px-6 py-24">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-bold mb-4">
+            Explore Community Projects
           </h2>
-          <div className="grid gap-8 grid-cols-1 md:grid-cols-3">
-            <Card className="border-none shadow-lg hover:shadow-xl transition-shadow">
-              <CardHeader>
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <Users className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="text-xl font-semibold">Build Your Dream Team</h3>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Post your project idea and connect with passionate team members who share your vision. Find the perfect mix of skills and enthusiasm.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-lg hover:shadow-xl transition-shadow">
-              <CardHeader>
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <GraduationCap className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="text-xl font-semibold">Learn from Mentors</h3>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Get guidance from experienced project leaders who've been there before. Access resources, tips, and personalized advice.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-lg hover:shadow-xl transition-shadow">
-              <CardHeader>
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <Trophy className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="text-xl font-semibold">Level Up Together</h3>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Earn badges, unlock achievements, and track your progress as you complete project milestones. Celebrate success as a team!
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-
-      {/* Featured Projects */}
-      <div id="explore" className="bg-secondary/10 py-24">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-6">Featured Projects</h2>
-          <p className="text-center text-muted-foreground mb-12 max-w-2xl mx-auto">
-            Discover exciting projects looking for team members. Join an existing initiative or get inspired to start your own!
+          <p className="max-w-2xl mx-auto opacity-70">
+            Discover real projects created by innovative teams across various
+            domains.
           </p>
-          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
-            {featuredProjects.map((project) => (
-              <Card key={project.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="text-xl font-semibold">{project.title}</h3>
-                      <p className="text-sm text-primary">{project.category}</p>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-1 mb-8">
+            <TabsTrigger value="projects">All Projects</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="projects" className="grid md:grid-cols-2 gap-6">
+            {isLoading ? (
+              <div className="col-span-full text-center">
+                <p>Loading projects...</p>
+              </div>
+            ) : publicProjects.length === 0 ? (
+              <div className="col-span-full text-center">
+                <p>No public projects available at the moment.</p>
+              </div>
+            ) : (
+              publicProjects.map((project, index) => (
+                <Card key={index} className="hover:shadow-xl transition-shadow">
+                  <CardHeader>
+                    <h3 className="text-2xl font-bold">{project.title}</h3>
+                    <p className="opacity-70">
+                      {truncateDescription(project.description)}
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="mb-4">
+                      <h4 className="font-semibold mb-2">Project Domain:</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {project.skills.map((skill) => (
+                          <span
+                            key={skill}
+                            className="px-2 py-1 rounded-full text-xs border opacity-80"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                    {project.mentorAvailable && (
-                      <span className="bg-primary/10 text-primary text-xs px-2 py-1 rounded-full">
-                        Mentor Available
-                      </span>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground mb-4">{project.description}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">{project.teamSize}</span>
-                    <Button variant="outline" asChild>
-                      <a href="/api/auth/login">Join Project</a>
+                    <div className="mb-4">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4" />
+                        <span>{project.teamSize}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 mb-4">
+                      <Star className="w-4 h-4" />
+                      <span className="text-sm">{project.impact}</span>
+                    </div>
+                    <Button asChild className="w-full">
+                      <a href="/api/auth/login">View Project Details</a>
                     </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      {/* Platform Features */}
+      <div className="container mx-auto px-6 py-24">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-bold mb-4">
+            Your Collaborative Ecosystem
+          </h2>
+          <p className="max-w-2xl mx-auto opacity-70">
+            Comprehensive tools and features designed to support your project
+            journey from concept to completion.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {platformFeatures.map((feature, index) => (
+            <Card key={index} className="hover:shadow-xl transition-shadow">
+              <CardHeader>
+                <div className="mb-4">
+                  <feature.icon className="w-10 h-10 opacity-70" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">{feature.title}</h3>
+              </CardHeader>
+              <CardContent>
+                <p className="opacity-70 mb-4">{feature.description}</p>
+                <ul className="space-y-2">
+                  {feature.details.map((detail) => (
+                    <li key={detail} className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 opacity-50" />
+                      <span className="text-sm">{detail}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
 
-      {/* CTA Section */}
-      <div className="py-24 bg-background">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-6">Ready to Make an Impact?</h2>
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Join a community of young innovators and changemakers. Start your project journey today - it's free and fun!
+      {/* Final CTA */}
+      <div className="container mx-auto px-6 py-24 text-center">
+        <div className="max-w-3xl mx-auto space-y-6 bg-secondary/10 p-12 rounded-xl">
+          <h2 className="text-4xl font-bold">Your Impact Journey Begins Now</h2>
+          <p className="text-xl opacity-70">
+            Whether you're a student, aspiring professional, or passionate
+            innovator, MeritMess provides the ultimate platform to transform
+            your ideas into impactful projects.
           </p>
-          <Button size="lg" asChild>
-            <a href="/api/auth/login">Launch Your Project</a>
-          </Button>
+          <div className="flex justify-center gap-4">
+            <Button size="lg" asChild>
+              <a href="/api/auth/signup">Create Your Project</a>
+            </Button>
+            <Button variant="outline" size="lg" asChild>
+              <a href="#projects">Explore Community</a>
+            </Button>
+          </div>
         </div>
       </div>
     </div>

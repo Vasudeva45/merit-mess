@@ -74,6 +74,16 @@ export async function getProjectDetails(groupId: number) {
           description: true,
         },
       },
+      mentor: {
+        select: {
+          userId: true,
+          name: true,
+          title: true,
+          mentorExpertise: true,
+          mentorRating: true,
+          email: true,
+        },
+      },
     },
   });
 }

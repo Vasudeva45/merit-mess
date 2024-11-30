@@ -311,3 +311,45 @@ export async function updateGroupMember({
     });
   }
 }
+
+export async function getPublicProjects() {
+  // Fetch project groups with their associated forms
+  const projects = await prisma.projectGroup.findMany({
+    where: {
+      form: {
+        published: true,
+        NOT: {
+          status: "closed",
+        },
+      },
+    },
+    include: {
+      form: {
+        select: {
+          name: true,
+          description: true,
+          domain: true,
+          specialization: true,
+        },
+      },
+      members: {
+        select: {
+          role: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    take: 6, // Limit to 6 projects
+  });
+
+  // Transform the data to match the existing structure in the landing page
+  return projects.map((project) => ({
+    title: project.name,
+    description: project.form.description,
+    skills: [project.form.domain, project.form.specialization].filter(Boolean),
+    teamSize: `${project.members.length} members`,
+    impact: "Creating meaningful project impact",
+  }));
+}

@@ -28,7 +28,7 @@ import {
   Trophy,
   BookOpen,
 } from "lucide-react";
-
+import { useSearchParams } from "next/navigation";
 import {
   createMentorshipRequest,
   getMyProjectGroups,
@@ -40,17 +40,17 @@ export default function MentorProfilePage({
 }: {
   params: { userId: string };
 }) {
+  const searchParams = useSearchParams();
+  const isAlreadyMentor = searchParams.get("isProjectMentor") === "true";
+
   const [mentor, setMentor] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // Mentorship Request State
   const [projectGroups, setProjectGroups] = useState([]);
   const [selectedProjectGroup, setSelectedProjectGroup] = useState(null);
   const [mentorshipMessage, setMentorshipMessage] = useState("");
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
 
-  // Fetch mentor profile on component mount
   React.useEffect(() => {
     const fetchMentorProfile = async () => {
       try {
@@ -84,7 +84,6 @@ export default function MentorProfilePage({
     }
   };
 
-  // Handle mentorship request submission
   const handleOrderMentorship = async () => {
     if (!selectedProjectGroup) {
       toast({
@@ -120,7 +119,7 @@ export default function MentorProfilePage({
     }
   };
 
-  // Loading and error states
+  // Rest of your existing render logic for loading and error states...
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -136,6 +135,24 @@ export default function MentorProfilePage({
   if (!mentor) {
     return <div className="text-center p-6">Mentor profile not found</div>;
   }
+
+  const renderMentorshipCard = () => (
+    <Card>
+      <CardHeader>
+        <CardTitle>Mentorship</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Button
+          onClick={openMentorshipRequestDialog}
+          disabled={isAlreadyMentor}
+        >
+          {isAlreadyMentor
+            ? "Already Your Project Mentor"
+            : "Request Mentorship"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -280,16 +297,7 @@ export default function MentorProfilePage({
           </CardContent>
         </Card>
       )}
-      <Card>
-        <CardHeader>
-          <CardTitle>Mentorship</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Button onClick={openMentorshipRequestDialog}>
-            Request Mentorship
-          </Button>
-        </CardContent>
-      </Card>
+      {renderMentorshipCard()}
 
       {/* Mentorship Request Dialog */}
       <Dialog open={isRequestDialogOpen} onOpenChange={setIsRequestDialogOpen}>

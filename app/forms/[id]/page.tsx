@@ -31,14 +31,10 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import SubmissionGroupManager from "@/components/groupRelated/SubmissionGroupManager";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { LuSettings } from "react-icons/lu";
 import { StatusButton } from "@/components/FormRelated/StatusButton";
+
+// Separate client-side component for description
+import DescriptionExpander from "@/components/FormRelated/DescriptionExpander";
 
 async function BuilderPage({
   params,
@@ -89,9 +85,9 @@ async function BuilderPage({
                   )}
                 </div>
               </div>
-              <p className="text-muted-foreground">
-                {form.description || "Form Dashboard"}
-              </p>
+              {form.description && (
+                <DescriptionExpander description={form.description} />
+              )}
             </div>
             <div className="flex items-center gap-4">
               <StatusButton status={form.status} formId={form.id} />

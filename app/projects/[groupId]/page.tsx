@@ -12,6 +12,8 @@ import { Loader2 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+const MAX_DESCRIPTION_LENGTH = 50;
+
 export default function ProjectRoom() {
   const params = useParams();
   const groupId = Number(params.groupId);
@@ -20,6 +22,7 @@ export default function ProjectRoom() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("tasks");
   const [newStatus, setNewStatus] = useState(projectData?.status || "active");
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   useEffect(() => {
     fetchProjectData();
@@ -47,6 +50,16 @@ export default function ProjectRoom() {
     }
   };
 
+  const getDisplayDescription = () => {
+    const description = projectData?.form?.description;
+    if (!description) return "";
+
+    if (description.length <= MAX_DESCRIPTION_LENGTH || isDescriptionExpanded) {
+      return description;
+    }
+    return description.slice(0, MAX_DESCRIPTION_LENGTH) + "...";
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -68,7 +81,18 @@ export default function ProjectRoom() {
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold">{projectData?.form?.name}</h1>
-          <p className="text-gray-500 mt-2">{projectData?.form?.description}</p>
+          <div className="mt-2">
+            <p className="text-gray-500 inline">{getDisplayDescription()}</p>
+            {projectData?.form?.description?.length >
+              MAX_DESCRIPTION_LENGTH && (
+              <button
+                onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                className="ml-2 text-blue-500 hover:text-blue-700 text-sm font-medium"
+              >
+                {isDescriptionExpanded ? "Show less" : "Show more"}
+              </button>
+            )}
+          </div>
         </div>
         <div className="text-sm text-gray-500">
           Owner:{" "}

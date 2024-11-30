@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { FaWpforms } from "react-icons/fa";
-import { LuView, LuSearch } from "react-icons/lu";
+import { LuView, LuSearch, LuChevronDown, LuChevronUp } from "react-icons/lu";
 import { formatDistance } from "date-fns";
 import { HiClock } from "react-icons/hi";
 
@@ -52,6 +52,38 @@ const SearchBar = ({ onSearch }) => {
   );
 };
 
+const TruncatedDescription = ({ description, maxLength = 100 }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  if (description.length <= maxLength) {
+    return <p>{description}</p>;
+  }
+
+  return (
+    <div>
+      <p>
+        {isExpanded 
+          ? description 
+          : `${description.slice(0, maxLength)}...`}
+      </p>
+      <button 
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="text-primary text-sm flex items-center gap-1 mt-1 hover:underline"
+      >
+        {isExpanded ? (
+          <>
+            Show less <LuChevronUp className="w-4 h-4" />
+          </>
+        ) : (
+          <>
+            Show more <LuChevronDown className="w-4 h-4" />
+          </>
+        )}
+      </button>
+    </div>
+  );
+};
+
 const FormGrid = ({ forms }: { forms: Form[] }) => {
   const activeForms = forms.filter((form) => form.status !== "closed");
 
@@ -76,7 +108,11 @@ const FormGrid = ({ forms }: { forms: Form[] }) => {
               {form.name}
             </CardTitle>
             <CardDescription>
-              {form.description || "No description provided"}
+              {form.description ? (
+                <TruncatedDescription description={form.description} />
+              ) : (
+                "No description provided"
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

@@ -13,9 +13,11 @@ const MentorshipRequestSchema = z.object({
   message: z.string().optional(),
 });
 
-export async function createMentorshipRequest(
-  input: z.infer<typeof MentorshipRequestSchema>
-) {
+export async function createMentorshipRequest(input: {
+  mentorId: string;
+  projectGroupId: number;
+  message?: string;
+}) {
   const session = await getSession();
   const user = session?.user;
 
@@ -23,15 +25,10 @@ export async function createMentorshipRequest(
     throw new Error("Unauthorized");
   }
 
-  // Validate input
-  const validatedInput = MentorshipRequestSchema.parse(input);
-
   try {
-    // Decode the mentor ID
-    const decodedMentorId = decodeURIComponent(validatedInput.mentorId);
-    console.log("Decoded Mentor ID:", decodedMentorId);
+    const decodedMentorId = decodeURIComponent(input.mentorId);
 
-    // Verify mentor profile exists before creating the request
+    // Verify mentor profile exists
     const mentorProfile = await prisma.profile.findUnique({
       where: {
         userId: decodedMentorId,
@@ -44,9 +41,10 @@ export async function createMentorshipRequest(
       );
     }
 
+    // Check group membership
     const groupMembership = await prisma.groupMember.findFirst({
       where: {
-        groupId: validatedInput.projectGroupId,
+        groupId: input.projectGroupId,
         userId: user.sub,
         status: "accepted",
       },
@@ -62,10 +60,10 @@ export async function createMentorshipRequest(
     const existingRequest = await prisma.mentorshipRequest.findFirst({
       where: {
         mentorId: decodedMentorId,
-        projectGroupId: validatedInput.projectGroupId,
+        projectGroupId: input.projectGroupId,
         requesterId: user.sub,
         status: {
-          in: ["pending", "accepted"],
+          in: ["pending", "accepted", "mentor_invited"],
         },
       },
     });
@@ -74,14 +72,14 @@ export async function createMentorshipRequest(
       throw new Error("A mentorship request for this project already exists");
     }
 
-    // Create mentorship request
+    // Create mentorship request with mentor_invited status
     const mentorshipRequest = await prisma.mentorshipRequest.create({
       data: {
         mentorId: decodedMentorId,
-        projectGroupId: validatedInput.projectGroupId,
+        projectGroupId: input.projectGroupId,
         requesterId: user.sub,
-        message: validatedInput.message,
-        status: "pending",
+        message: input.message,
+        status: "mentor_invited", // Changed to mentor_invited
       },
       include: {
         projectGroup: {
@@ -108,19 +106,7 @@ export async function createMentorshipRequest(
 
     return mentorshipRequest;
   } catch (error) {
-    // Enhanced error logging
     console.error("Full Mentorship Request Error:", error);
-
-    // More specific error handling
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === "P2003") {
-        throw new Error(
-          `Invalid mentor ID: ${validatedInput.mentorId}. The mentor may not exist in the system.`
-        );
-      }
-    }
-
-    // Re-throw the original error if it's not a known Prisma error
     throw error;
   }
 }
@@ -163,10 +149,13 @@ export async function getMentorshipRequests() {
     throw new Error("Unauthorized");
   }
 
-  // Fetch requests where the user is either the mentor or the requester
   return await prisma.mentorshipRequest.findMany({
     where: {
-      OR: [{ mentorId: user.sub }, { requesterId: user.sub }],
+      OR: [
+        { mentorId: user.sub, status: "mentor_invited" },
+        { mentorId: user.sub, status: "pending" },
+        { requesterId: user.sub },
+      ],
     },
     include: {
       projectGroup: {
@@ -195,7 +184,7 @@ export async function getMentorshipRequests() {
 
 export async function updateMentorshipRequestStatus(
   requestId: number,
-  status: "accepted" | "rejected"
+  status: "accepted" | "rejected" | "mentor_invited"
 ) {
   const session = await getSession();
   const user = session?.user;
@@ -204,31 +193,75 @@ export async function updateMentorshipRequestStatus(
     throw new Error("Unauthorized");
   }
 
-  // Verify the user is the mentor for this request
+  // Fetch the request with its related project group
   const request = await prisma.mentorshipRequest.findUnique({
     where: { id: requestId },
-  });
-
-  if (!request || request.mentorId !== user.sub) {
-    throw new Error("Unauthorized to update this request");
-  }
-
-  const updatedRequest = await prisma.mentorshipRequest.update({
-    where: { id: requestId },
-    data: {
-      status,
-      updatedAt: new Date(),
-    },
     include: {
       projectGroup: true,
-      requester: true,
-      mentor: true,
     },
   });
 
-  // Revalidate paths
-  revalidatePath("/dashboard/mentorship-requests");
-  revalidatePath(`/profile/${request.requesterId}`);
+  if (!request) {
+    throw new Error("Mentorship request not found");
+  }
 
-  return updatedRequest;
+  // Different logic based on the current status and the action
+  if (status === "accepted" && request.status === "mentor_invited") {
+    // When a mentor accepts the invitation, update the project group and the request
+    const updatedRequest = await prisma.$transaction(async (prisma) => {
+      // Update the project group to set the mentor
+      await prisma.projectGroup.update({
+        where: { id: request.projectGroupId },
+        data: {
+          mentorId: user.sub,
+        },
+      });
+
+      // Add mentor as a group member
+      await prisma.groupMember.create({
+        data: {
+          groupId: request.projectGroupId,
+          userId: user.sub,
+          role: "mentor",
+          status: "accepted",
+        },
+      });
+
+      // Update the mentorship request status
+      return await prisma.mentorshipRequest.update({
+        where: { id: requestId },
+        data: {
+          status: "accepted",
+          updatedAt: new Date(),
+        },
+        include: {
+          projectGroup: true,
+          requester: true,
+          mentor: true,
+        },
+      });
+    });
+
+    // Revalidate paths
+    revalidatePath("/dashboard/mentorship-requests");
+    revalidatePath(`/profile/${user.sub}`);
+
+    return updatedRequest;
+  } else if (status === "rejected" && request.status === "mentor_invited") {
+    // If mentor rejects the invitation
+    const updatedRequest = await prisma.mentorshipRequest.update({
+      where: { id: requestId },
+      data: {
+        status: "rejected",
+        updatedAt: new Date(),
+      },
+    });
+
+    // Revalidate paths
+    revalidatePath("/dashboard/mentorship-requests");
+
+    return updatedRequest;
+  }
+
+  throw new Error("Invalid mentorship request status update");
 }

@@ -227,6 +227,35 @@ export async function getPublicProfile(userId: string) {
   }
 }
 
+export async function getCurrentUserProfile() {
+  try {
+    const session = await getSession();
+    const user = session?.user;
+
+    if (!user || !user.sub) {
+      throw new UserNotFoundErr();
+    }
+
+    const profile = await prisma.profile.findUnique({
+      where: { userId: user.sub },
+      select: {
+        type: true, // Only select the type field to minimize data retrieval
+        userId: true,
+      },
+    });
+
+    if (!profile) {
+      // If no profile exists, return a default profile type
+      return { type: "student", userId: user.sub };
+    }
+
+    return profile;
+  } catch (error) {
+    console.error("Error fetching current user profile:", error);
+    throw new Error("Failed to fetch current user profile");
+  }
+}
+
 export async function formatValidationErrors(error: ValidationError) {
   return Object.entries(error.errors).reduce((acc, [field, messages]) => {
     acc[field] = messages.join(", ");

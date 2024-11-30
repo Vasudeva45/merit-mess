@@ -3,9 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { redirect } from "next/navigation";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { GraduationCap, Star } from "lucide-react";
+import { motion } from "framer-motion";
+import { GraduationCap, Star, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
 interface MentorProfile {
@@ -28,19 +27,14 @@ export default function MentorsPage() {
   useEffect(() => {
     const fetchMentors = async () => {
       try {
-        console.log("Fetching mentors...");
         const response = await fetch("/api/mentors");
-        console.log("Response status:", response.status);
-
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const data = await response.json();
-        console.log("Received mentors data:", data);
         setMentors(data);
       } catch (error) {
-        console.error("Error fetching mentors:", error);
         setError(
           error instanceof Error ? error.message : "Failed to fetch mentors"
         );
@@ -59,108 +53,137 @@ export default function MentorsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        <div className="animate-pulse">
+          <div className="h-12 w-12 bg-secondary rounded-full"></div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-4">
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-red-500">Error: {error}</p>
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="bg-destructive/10 border border-destructive/20 p-8 rounded-xl text-center">
+          <p className="text-destructive font-semibold">Error: {error}</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Unable to load mentors at this time. Please try again later.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Find a Mentor</h1>
-        <div className="text-sm text-muted-foreground">
-          Found {mentors.length} mentors
-        </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="mb-12">
+        <motion.h1
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="text-4xl font-extrabold tracking-tight"
+        >
+          Find Your Perfect Mentor
+        </motion.h1>
+        <p className="mt-4 text-lg text-muted-foreground">
+          Connect with experienced professionals who can guide your career
+          journey
+        </p>
       </div>
 
       {mentors.length === 0 ? (
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-center text-muted-foreground">
-              No mentors available at the moment. This might be because:
-            </p>
-            <ul className="list-disc pl-6 mt-2 text-sm text-muted-foreground">
-              <li>No profiles are set to type "mentor" in the database</li>
-              <li>No mentors have set availableForMentorship to true</li>
-              <li>The database connection might need to be checked</li>
-            </ul>
-          </CardContent>
-        </Card>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="bg-secondary/50 backdrop-blur-sm border border-border/50 rounded-xl p-8 text-center"
+        >
+          <p className="text-muted-foreground">
+            No mentors are currently available
+          </p>
+          <ul className="mt-4 space-y-2 text-sm text-muted-foreground max-w-md mx-auto">
+            <li>• Mentor profiles might be under review</li>
+            <li>• No mentors have set their availability</li>
+            <li>• Technical issues with mentor database</li>
+          </ul>
+        </motion.div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-3">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ staggerChildren: 0.1 }}
+          className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+        >
           {mentors.map((mentor) => (
-            <Card key={mentor.userId}>
-              <CardHeader>
-                <div className="flex items-center gap-4">
+            <motion.div
+              key={mentor.userId}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
+              whileHover={{ scale: 1.03 }}
+              className="relative overflow-hidden rounded-2xl"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-secondary/30 to-secondary/10 backdrop-blur-md rounded-2xl"></div>
+              <div className="relative z-10 p-6">
+                <div className="flex items-center space-x-4 mb-4">
                   {mentor.imageUrl ? (
                     <img
                       src={mentor.imageUrl}
                       alt={mentor.name}
-                      className="h-12 w-12 rounded-full object-cover"
+                      className="w-16 h-16 rounded-full object-cover border-2 border-secondary/30"
                     />
                   ) : (
-                    <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                      <GraduationCap className="h-6 w-6" />
+                    <div className="w-16 h-16 rounded-full bg-secondary/30 flex items-center justify-center">
+                      <GraduationCap className="w-8 h-8 text-foreground/70" />
                     </div>
                   )}
                   <div>
-                    <CardTitle className="text-lg">{mentor.name}</CardTitle>
+                    <h2 className="text-xl font-bold">{mentor.name}</h2>
                     <p className="text-sm text-muted-foreground">
                       {mentor.title || "Mentor"}{" "}
                       {mentor.organization && `at ${mentor.organization}`}
                     </p>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4">
+
+                <div className="space-y-3">
                   {mentor.mentorRating && (
-                    <div className="flex items-center gap-1 mb-2">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span className="text-sm">
-                        {mentor.mentorRating.toFixed(1)}
+                    <div className="flex items-center space-x-2">
+                      <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+                      <span className="text-sm font-medium">
+                        {mentor.mentorRating.toFixed(1)} Rating
                       </span>
                     </div>
                   )}
-                  <div className="flex flex-wrap gap-2 mb-3">
+
+                  <div className="flex flex-wrap gap-2">
                     {mentor.mentorExpertise
                       .slice(0, 3)
                       .map((expertise, index) => (
                         <span
                           key={index}
-                          className="text-xs px-2 py-1 bg-secondary rounded-full"
+                          className="px-3 py-1 text-xs rounded-full bg-secondary/50 text-foreground/70"
                         >
                           {expertise}
                         </span>
                       ))}
                   </div>
+
                   <p className="text-sm text-muted-foreground">
                     {mentor.yearsOfExperience
                       ? `${mentor.yearsOfExperience}+ years of experience`
                       : "Experienced mentor"}
                   </p>
                 </div>
-                <Link href={`/mentor/${mentor.userId}`}>
-                  <Button variant="secondary" className="w-full">
-                    View Profile
-                  </Button>
+
+                <Link href={`/mentor/${mentor.userId}`} className="block mt-6">
+                  <button className="w-full flex items-center justify-center space-x-2 py-3 bg-secondary/80 text-foreground rounded-lg hover:bg-secondary transition-colors">
+                    <span>View Profile</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
                 </Link>
-              </CardContent>
-            </Card>
+              </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
     </div>
   );

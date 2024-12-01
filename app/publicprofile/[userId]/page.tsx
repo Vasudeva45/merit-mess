@@ -1,7 +1,6 @@
 import { getPublicProfile } from "@/actions/profile";
 import ProfileClient from "../components/ProfileClient";
 
-
 export default async function PublicProfilePage({
   params,
 }: {

@@ -1,370 +1,349 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   getMyProjectGroups,
   getProjectInvites,
   updateMemberStatus,
 } from "@/actions/group";
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Check, X, Loader2, ChevronRight } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { useRouter } from "next/navigation";
-import {
   getMentorshipRequests,
   updateMentorshipRequestStatus,
 } from "@/actions/mentorship";
-import { getCurrentUserProfile } from "@/actions/profile"; // Add this import
+import { getCurrentUserProfile } from "@/actions/profile";
+import {
+  FileText,
+  Users,
+  Coffee,
+  ClipboardList,
+  Check,
+  X,
+  Zap,
+  ArrowRight,
+  Star,
+  Clock,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
 
-const truncateText = (text: string, maxLength: number = 100) => {
-  if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength) + "...";
-};
-
-const ProjectPage = () => {
-  const [invites, setInvites] = useState([]);
-  const [projectGroups, setProjectGroups] = useState([]);
-  const [mentorInvites, setMentorInvites] = useState([]);
+const ProjectDashboard = () => {
+  const [userData, setUserData] = useState({
+    profile: null,
+    invites: [],
+    mentorInvites: [],
+    projectGroups: [],
+  });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [processingInvites, setProcessingInvites] = useState({});
-  const [activeTab, setActiveTab] = useState("invitations");
-  const [userProfileType, setUserProfileType] = useState(null);
+  const [activeTab, setActiveTab] = useState("projects");
+  const [processingItems, setProcessingItems] = useState({});
+  const [navigatingProject, setNavigatingProject] = useState(null);
   const router = useRouter();
 
-  // Fetch user profile type
+  // Fetch comprehensive user data
   useEffect(() => {
-    const fetchUserProfile = async () => {
+    const fetchAllData = async () => {
       try {
+        setLoading(true);
         const profile = await getCurrentUserProfile();
-        setUserProfileType(profile.type);
-      } catch (err) {
-        setError("Failed to load user profile");
+        const [invites, mentorInvites, projectGroups] = await Promise.all([
+          getProjectInvites(),
+          profile.type === "mentor"
+            ? getMentorshipRequests()
+            : Promise.resolve([]),
+          getMyProjectGroups(),
+        ]);
+
+        setUserData({
+          profile,
+          invites: invites.filter((invite) => invite.status !== "accepted"),
+          mentorInvites:
+            profile.type === "mentor"
+              ? mentorInvites.filter(
+                  (invite) => invite.status === "mentor_invited"
+                )
+              : [],
+          projectGroups,
+        });
+      } catch (error) {
+        console.error("Failed to fetch user data", error);
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchUserProfile();
+    fetchAllData();
   }, []);
 
-  useEffect(() => {
-    // Only attempt to fetch data if profile type is loaded
-    if (userProfileType !== null) {
-      fetchData();
-    }
-  }, [activeTab, userProfileType]);
+  // Process invite responses
+  const handleInviteResponse = async (invite, status, type) => {
+    const itemId = invite.id;
+    setProcessingItems((prev) => ({ ...prev, [itemId]: true }));
 
-  const fetchData = async () => {
     try {
-      setLoading(true);
-      if (activeTab === "invitations") {
-        const invitesData = await getProjectInvites();
-        setInvites(
-          invitesData.filter((invite) => invite.status !== "accepted")
-        );
-      } else if (activeTab === "mentorInvites") {
-        // Only fetch mentor invites if user is a mentor
-        if (userProfileType === "mentor") {
-          const mentorInvitesData = await getMentorshipRequests();
-          setMentorInvites(
-            mentorInvitesData.filter(
-              (invite) => invite.status === "mentor_invited"
-            )
-          );
-        }
-      } else {
-        const groupsData = await getMyProjectGroups();
-        setProjectGroups(groupsData);
+      if (type === "project") {
+        await fetch("/api/project-invites/respond", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            groupId: invite.group.id,
+            memberId: invite.id,
+            status,
+          }),
+        });
+
+        setUserData((prev) => ({
+          ...prev,
+          invites: prev.invites.filter((i) => i.id !== itemId),
+        }));
+      } else if (type === "mentor") {
+        await updateMentorshipRequestStatus(itemId, status);
+
+        setUserData((prev) => ({
+          ...prev,
+          mentorInvites: prev.mentorInvites.filter((i) => i.id !== itemId),
+        }));
       }
-    } catch (err) {
-      setError("Failed to load project data");
+    } catch (error) {
+      console.error(`Failed to process ${type} invite`, error);
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleMentorInviteResponse = async (requestId, status) => {
-    setProcessingInvites((prev) => ({ ...prev, [requestId]: true }));
-    try {
-      await updateMentorshipRequestStatus(requestId, status);
-      setMentorInvites((prev) =>
-        prev.filter((invite) => invite.id !== requestId)
-      );
-    } catch (err) {
-      setError("Failed to process mentor invitation");
-    } finally {
-      setProcessingInvites((prev) => ({ ...prev, [requestId]: false }));
-    }
-  };
-
-  const handleInviteResponse = async (groupId, memberId, status) => {
-    setProcessingInvites((prev) => ({ ...prev, [memberId]: true }));
-    try {
-      const response = await fetch("/api/project-invites/respond", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ groupId, memberId, status }),
+      setProcessingItems((prev) => {
+        const newState = { ...prev };
+        delete newState[itemId];
+        return newState;
       });
-
-      if (!response.ok) throw new Error("Failed to update invitation status");
-
-      setInvites((prev) => prev.filter((invite) => invite.id !== memberId));
-    } catch (err) {
-      setError("Failed to process invitation");
-    } finally {
-      setProcessingInvites((prev) => ({ ...prev, [memberId]: false }));
     }
   };
 
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-  };
+  // Compute stats
+  const stats = useMemo(
+    () => ({
+      totalProjects: userData.projectGroups.length,
+      activeProjects: userData.projectGroups.filter(
+        (g) => g.status === "active"
+      ).length,
+      pendingInvites: userData.invites.length + userData.mentorInvites.length,
+    }),
+    [userData]
+  );
 
-  const handleProjectGroupClick = (group) => {
-    router.push(`/projects/${group.id}`);
-  };
+  // Render tabs based on user type
+  const tabs = useMemo(() => {
+    const baseTabs = [
+      {
+        id: "projects",
+        label: "My Projects",
+        icon: <FileText className="h-5 w-5" />,
+      },
+      {
+        id: "invitations",
+        label: "Invitations",
+        icon: <ClipboardList className="h-5 w-5" />,
+      },
+    ];
 
-  // Filter function to show only pending or accepted members
-  const getValidMembers = (members) => {
-    return members.filter(
-      (member) => member.status === "pending" || member.status === "accepted"
+    return userData.profile?.type === "mentor"
+      ? [
+          ...baseTabs,
+          {
+            id: "mentorInvites",
+            label: "Mentor Requests",
+            icon: <Coffee className="h-5 w-5" />,
+          },
+        ]
+      : baseTabs;
+  }, [userData.profile]);
+
+  // Render empty state
+  const renderEmptyState = (message) => (
+    <div className="flex flex-col items-center justify-center p-12 bg-muted/30 rounded-xl">
+      <Zap className="h-12 w-12 text-primary mb-4" />
+      <p className="text-muted-foreground">{message}</p>
+    </div>
+  );
+
+  // Project card renderer
+  const renderProjectCard = (project) => {
+    const handleProjectNavigation = () => {
+      setNavigatingProject(project.id);
+      router.push(`/projects/${project.id}`);
+    };
+
+    const isNavigating = navigatingProject === project.id;
+
+    return (
+      <div
+        key={project.id}
+        className="relative bg-card border rounded-xl p-6 hover:shadow-lg transition-all group cursor-pointer"
+        onClick={handleProjectNavigation}
+      >
+        {isNavigating && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
+            <Zap className="h-8 w-8 animate-pulse text-primary" />
+          </div>
+        )}
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">{project.form.name}</h3>
+          <Star className="h-5 w-5 text-yellow-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          {project.form.description.slice(0, 100)}...
+        </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Users className="h-4 w-4 text-primary" />
+            <span className="text-sm">
+              {project.members.filter((m) => m.status === "accepted").length}{" "}
+              members
+            </span>
+          </div>
+          <div className="text-sm font-medium px-3 py-1 rounded-full bg-primary/10 text-primary">
+            {project.status}
+          </div>
+        </div>
+      </div>
     );
   };
 
-  // Dynamically render tabs based on user profile type
-  const renderTabs = () => {
-    const tabs = [
-      { value: "invitations", label: "Project Invitations" },
-      { value: "groups", label: "My Project Groups" },
-    ];
-
-    // Only add mentor invites tab if user is a mentor
-    if (userProfileType === "mentor") {
-      tabs.splice(1, 0, { value: "mentorInvites", label: "Mentor Invites" });
-    }
-
-    return tabs;
-  };
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <Zap className="h-12 w-12 animate-pulse text-primary" />
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto p-8 space-y-8">
-      <h1 className="text-3xl font-bold">Projects</h1>
+    <div className="container mx-auto px-4 py-8">
+      <header className="mb-8 flex justify-between items-center">
+        <div>
+          <h1 className="text-4xl font-bold tracking-tight">Projects Hub</h1>
+          <p className="text-muted-foreground mt-2">
+            Manage your projects, collaborations, and opportunities
+          </p>
+        </div>
+        <div className="flex space-x-4">
+          <div className="bg-card border rounded-full px-4 py-2 flex items-center space-x-2">
+            <FileText className="h-5 w-5 text-primary" />
+            <span>{stats.totalProjects} Total Projects</span>
+          </div>
+          <div className="bg-card border rounded-full px-4 py-2 flex items-center space-x-2">
+            <Clock className="h-5 w-5 text-yellow-500" />
+            <span>{stats.pendingInvites} Pending</span>
+          </div>
+        </div>
+      </header>
 
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+      <div className="flex space-x-4 mb-8">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`
+      flex items-center space-x-2 px-4 py-2 rounded-full transition-all
+      ${
+        activeTab === tab.id
+          ? "bg-primary/10 text-primary font-semibold"
+          : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
+      }
+    `}
+          >
+            {tab.icon}
+            <span>{tab.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Projects Tab */}
+      {activeTab === "projects" && (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {userData.projectGroups.length > 0
+            ? userData.projectGroups.map(renderProjectCard)
+            : renderEmptyState("You haven't joined any projects yet.")}
+        </div>
       )}
 
-      {userProfileType !== null && (
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList>
-            {renderTabs().map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value}>
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          <TabsContent value="invitations">
-            {loading && activeTab === "invitations" ? (
-              <div className="flex justify-center items-center min-h-[400px]">
-                <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
-              </div>
-            ) : invites.length === 0 && !error ? (
-              <Card className="p-8 text-center text-gray-500">
-                <p>No pending invitations</p>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {invites.map((invite) => (
-                  <Card key={invite.id}>
-                    <CardHeader>
-                      <CardTitle>{invite.group.form.name}</CardTitle>
-                      <CardDescription>
-                        {invite.group.form.description}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex justify-between items-center">
-                      <div>
-                        <p className="text-sm text-gray-500">
-                          Invited on:{" "}
-                          {new Date(invite.joinedAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="space-x-2">
-                        <Button
-                          onClick={() =>
-                            handleInviteResponse(
-                              invite.group.id,
-                              invite.id,
-                              "rejected"
-                            )
-                          }
-                          variant="outline"
-                          disabled={processingInvites[invite.id]}
-                        >
-                          {processingInvites[invite.id] ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <X className="h-4 w-4" />
-                          )}
-                          <span>Decline</span>
-                        </Button>
-                        <Button
-                          onClick={() =>
-                            handleInviteResponse(
-                              invite.group.id,
-                              invite.id,
-                              "accepted"
-                            )
-                          }
-                          disabled={processingInvites[invite.id]}
-                        >
-                          {processingInvites[invite.id] ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Check className="h-4 w-4" />
-                          )}
-                          <span>Accept</span>
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-          <TabsContent value="mentorInvites">
-            {loading && activeTab === "mentorInvites" ? (
-              <div className="flex justify-center items-center min-h-[400px]">
-                <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
-              </div>
-            ) : mentorInvites.length === 0 && !error ? (
-              <Card className="p-8 text-center text-gray-500">
-                <p>No pending mentor invitations</p>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {mentorInvites.map((invite) => (
-                  <Card key={invite.id}>
-                    <CardHeader>
-                      <CardTitle>{invite.projectGroup.name}</CardTitle>
-                      <CardDescription>
-                        Mentor Invitation from {invite.requester.name}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {invite.message && (
-                        <p className="text-sm text-gray-600 mb-4">
-                          Message: {invite.message}
-                        </p>
-                      )}
-                    </CardContent>
-                    <CardFooter className="flex justify-end space-x-2">
-                      <Button
-                        variant="outline"
-                        onClick={() =>
-                          handleMentorInviteResponse(invite.id, "rejected")
-                        }
-                        disabled={processingInvites[invite.id]}
-                      >
-                        {processingInvites[invite.id] ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <X className="h-4 w-4" />
-                        )}
-                        <span>Decline</span>
-                      </Button>
-                      <Button
-                        onClick={() =>
-                          handleMentorInviteResponse(invite.id, "accepted")
-                        }
-                        disabled={processingInvites[invite.id]}
-                      >
-                        {processingInvites[invite.id] ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Check className="h-4 w-4" />
-                        )}
-                        <span>Accept</span>
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-          <TabsContent value="groups">
-            {loading && activeTab === "groups" ? (
-              <div className="flex justify-center items-center min-h-[400px]">
-                <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
-              </div>
-            ) : projectGroups.length === 0 && !error ? (
-              <Card className="p-8 text-center text-gray-500">
-                <p>You are not a member of any project groups</p>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {projectGroups.map((group) => (
-                  <Card
-                    key={group.id}
-                    onClick={() => handleProjectGroupClick(group)}
-                    className="cursor-pointer hover:shadow-md transition-shadow"
-                  >
-                    <CardHeader>
-                      <CardTitle>{group.form.name}</CardTitle>
-                      <CardDescription>
-                        {truncateText(group.form.description, 100)}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="mb-2">
-                        <p className="text-sm text-gray-500">Group Members:</p>
-                        <ul>
-                          {getValidMembers(group.members).map((member) => (
-                            <li
-                              key={member.id}
-                              className="flex items-center gap-2"
-                            >
-                              <span>{member.profile.name}</span>
-                              {member.status === "pending" && (
-                                <span className="text-xs text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded-full">
-                                  Pending
-                                </span>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </CardContent>
-                    <CardFooter className="flex justify-end">
-                      <Button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleProjectGroupClick(group);
-                        }}
-                      >
-                        <span>View</span>
-                        <ChevronRight className="h-4 w-4 ml-2" />
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+      {/* Invitations Tab */}
+      {activeTab === "invitations" && (
+        <div className="space-y-4">
+          {userData.invites.length > 0
+            ? userData.invites.map((invite) => (
+                <div
+                  key={invite.id}
+                  className="bg-card border rounded-xl p-6 flex justify-between items-center"
+                >
+                  <div>
+                    <h3 className="text-lg font-semibold">
+                      {invite.group.form.name}
+                    </h3>
+                    <p className="text-muted-foreground">
+                      {invite.group.form.description}
+                    </p>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() =>
+                        handleInviteResponse(invite, "rejected", "project")
+                      }
+                      className="bg-destructive/10 text-destructive p-2 rounded-full hover:bg-destructive/20"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() =>
+                        handleInviteResponse(invite, "accepted", "project")
+                      }
+                      className="bg-primary/10 text-primary p-2 rounded-full hover:bg-primary/20"
+                    >
+                      <Check className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            : renderEmptyState("No pending project invitations.")}
+        </div>
+      )}
+
+      {/* Mentor Invites Tab */}
+      {activeTab === "mentorInvites" && userData.profile?.type === "mentor" && (
+        <div className="space-y-4">
+          {userData.mentorInvites.length > 0
+            ? userData.mentorInvites.map((invite) => (
+                <div
+                  key={invite.id}
+                  className="bg-card border rounded-xl p-6 flex justify-between items-center"
+                >
+                  <div>
+                    <h3 className="text-lg font-semibold">
+                      {invite.projectGroup.name}
+                    </h3>
+                    <p className="text-muted-foreground">
+                      Mentor Request from {invite.requester.name}
+                    </p>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() =>
+                        handleInviteResponse(invite, "rejected", "mentor")
+                      }
+                      className="bg-destructive/10 text-destructive p-2 rounded-full hover:bg-destructive/20"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() =>
+                        handleInviteResponse(invite, "accepted", "mentor")
+                      }
+                      className="bg-primary/10 text-primary p-2 rounded-full hover:bg-primary/20"
+                    >
+                      <Check className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            : renderEmptyState("No pending mentor invitations.")}
+        </div>
       )}
     </div>
   );
 };
 
-export default ProjectPage;
+export default ProjectDashboard;

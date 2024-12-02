@@ -28,6 +28,8 @@ import {
   CheckCircle2,
   Circle,
   Timer,
+  Loader2,
+  Zap,
 } from "lucide-react";
 import TaskEditRoom from "./TaskEditRoom";
 
@@ -45,15 +47,17 @@ const TASK_STATUS = {
 const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [taskData, setTaskData] = useState(tasks);
+  const [isLoading, setIsLoading] = useState(false);
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
     priority: "medium",
-    assigneeIds: "", // Changed from array to string
+    assigneeIds: "",
   });
 
   const handleCreateTask = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
     try {
       const taskData = {
         title: newTask.title,
@@ -72,10 +76,13 @@ const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
       onUpdate();
     } catch (error) {
       console.error("Failed to create task:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleStatusChange = async (taskId, newStatus) => {
+    setIsLoading(true);
     try {
       // Optimistically update the local state
       setTaskData((prevTasks) =>
@@ -95,6 +102,8 @@ const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
         )
       );
       console.error("Failed to update task status:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -111,8 +120,12 @@ const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
         <h2 className="text-2xl font-bold">Tasks</h2>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
+            <Button disabled={isLoading}>
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" />
+              )}
               New Task
             </Button>
           </DialogTrigger>
@@ -129,6 +142,7 @@ const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
                     setNewTask({ ...newTask, title: e.target.value })
                   }
                   required
+                  disabled={isLoading}
                 />
               </div>
               <div className="space-y-2">
@@ -138,6 +152,7 @@ const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
                   onChange={(e) =>
                     setNewTask({ ...newTask, description: e.target.value })
                   }
+                  disabled={isLoading}
                 />
               </div>
               <div className="space-y-2">
@@ -147,6 +162,7 @@ const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
                   onValueChange={(value) =>
                     setNewTask({ ...newTask, priority: value })
                   }
+                  disabled={isLoading}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select priority" />
@@ -165,23 +181,31 @@ const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
                   onValueChange={(value) =>
                     setNewTask({ ...newTask, assigneeIds: value })
                   }
+                  disabled={isLoading}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select assignee" />
                   </SelectTrigger>
                   <SelectContent>
-                    {members.map((member) => (
-                      <SelectItem
-                        key={member.profile.userId}
-                        value={member.profile.userId}
-                      >
-                        {member.profile.name}
-                      </SelectItem>
-                    ))}
+                    {members
+                      .filter((member) => member.role !== "mentor")
+                      .map((member) => (
+                        <SelectItem
+                          key={member.profile.userId}
+                          value={member.profile.userId}
+                        >
+                          {member.profile.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
-              <Button type="submit" className="w-full">
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Zap className="h-4 w-4 mr-2" />
+                )}
                 Create Task
               </Button>
             </form>
@@ -206,6 +230,7 @@ const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
                     task={task}
                     onStatusChange={handleStatusChange}
                     members={members}
+                    isLoading={isLoading}
                   />
                 ))}
               </div>
@@ -217,7 +242,7 @@ const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
   );
 };
 
-const TaskCard = ({ task, onStatusChange, members }) => {
+const TaskCard = ({ task, onStatusChange, members, isLoading }) => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   return (
     <>
@@ -231,6 +256,7 @@ const TaskCard = ({ task, onStatusChange, members }) => {
             <Select
               value={task.status}
               onValueChange={(value) => onStatusChange(task.id, value)}
+              disabled={isLoading}
             >
               <SelectTrigger className="h-6 w-24">
                 <SelectValue />

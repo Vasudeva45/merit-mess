@@ -30,6 +30,8 @@ import {
   X,
   Flag,
   MessageSquare,
+  Loader2,
+  Zap,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -100,7 +102,7 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
     setIsEditingDesc(false);
     await handleUpdate({ description });
     onUpdate();
-    setDescription(description); // Update local state with the new value
+    setDescription(description);
   };
 
   const handleDateChange = async (newDate) => {
@@ -168,13 +170,16 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
                         ? handleDescriptionSave()
                         : setIsEditingDesc(true)
                     }
+                    disabled={loading}
                   >
-                    {isEditingDesc ? (
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : isEditingDesc ? (
                       <Save className="h-4 w-4 mr-2" />
                     ) : (
                       <Edit2 className="h-4 w-4 mr-2" />
                     )}
-                    {isEditingDesc ? "Save" : "Edit"}
+                    {loading ? "Saving..." : isEditingDesc ? "Save" : "Edit"}
                   </Button>
                 </div>
                 {isEditingDesc ? (
@@ -183,6 +188,7 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
                     onChange={(e) => setDescription(e.target.value)}
                     className="min-h-[200px]"
                     placeholder="Add a detailed description..."
+                    disabled={loading}
                   />
                 ) : (
                   <div className="prose prose-sm max-w-none">
@@ -233,12 +239,17 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
                     onChange={(e) => setNewComment(e.target.value)}
                     placeholder="Write a comment..."
                     className="flex-1"
+                    disabled={loading}
                   />
                   <Button
                     type="submit"
                     disabled={loading || !newComment.trim()}
                   >
-                    <Send className="h-4 w-4" />
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
                   </Button>
                 </form>
               </div>
@@ -249,7 +260,11 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
               {/* Status */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Status</label>
-                <Select value={status} onValueChange={handleStatusChange}>
+                <Select
+                  value={status}
+                  onValueChange={handleStatusChange}
+                  disabled={loading}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -273,7 +288,11 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
               {/* Priority */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Priority</label>
-                <Select value={priority} onValueChange={handlePriorityChange}>
+                <Select
+                  value={priority}
+                  onValueChange={handlePriorityChange}
+                  disabled={loading}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -298,47 +317,57 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
                 <Select
                   value={assignees[assignees.length - 1] || ""}
                   onValueChange={handleAssigneesChange}
+                  disabled={loading}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Add assignee" />
                   </SelectTrigger>
                   <SelectContent>
-                    {members?.map((member) => (
-                      <SelectItem
-                        key={member.profile.userId}
-                        value={member.profile.userId}
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <span>{member.profile.name}</span>
-                          {assignees.includes(member.profile.userId) && (
-                            <CheckCircle2 className="h-4 w-4 text-green-500" />
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {members
+                      ?.filter((member) => member.role !== "mentor")
+                      .map((member) => (
+                        <SelectItem
+                          key={member.profile.userId}
+                          value={member.profile.userId}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span>{member.profile.name}</span>
+                            {assignees.includes(member.profile.userId) && (
+                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
 
                 <div className="mt-2 space-y-2">
-                  {task?.assignedTo?.map((user) => (
-                    <div
-                      key={user.userId}
-                      className="flex items-center gap-2 p-2 rounded-md bg-secondary/20"
-                    >
-                      <div className="h-6 w-6 bg-primary/10 rounded-full flex items-center justify-center text-sm">
-                        {user.name.charAt(0)}
-                      </div>
-                      <span className="text-sm">{user.name}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="ml-auto p-0 h-6 w-6"
-                        onClick={() => handleAssigneesChange(user.userId)}
+                  {task?.assignedTo
+                    ?.filter((user) => {
+                      return task.assignedTo.length > 1
+                        ? user.userId !== task.mentorId
+                        : true;
+                    })
+                    .map((user) => (
+                      <div
+                        key={user.userId}
+                        className="flex items-center gap-2 p-2 rounded-md bg-secondary/20"
                       >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+                        <div className="h-6 w-6 bg-primary/10 rounded-full flex items-center justify-center text-sm">
+                          {user.name.charAt(0)}
+                        </div>
+                        <span className="text-sm">{user.name}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="ml-auto p-0 h-6 w-6"
+                          onClick={() => handleAssigneesChange(user.userId)}
+                          disabled={loading}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
                 </div>
               </div>
 
@@ -350,6 +379,7 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
                     <Button
                       variant="outline"
                       className="w-full justify-start text-left font-normal"
+                      disabled={loading}
                     >
                       <Calendar className="h-4 w-4 mr-2" />
                       {date ? format(date, "PPP") : "Set due date"}

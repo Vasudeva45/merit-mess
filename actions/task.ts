@@ -196,6 +196,24 @@ export async function updateTaskStatus(taskId: number, status: string) {
     throw new Error("Task not found or unauthorized");
   }
 
+  // Add comment when status changes
+  const statusChangeComment =
+    status === "completed"
+      ? "Task approved by mentor"
+      : status === "mentor-revision-requested"
+      ? "Mentor requested revision"
+      : null;
+
+  if (statusChangeComment) {
+    await prisma.comment.create({
+      data: {
+        content: statusChangeComment,
+        taskId: taskId,
+        userId: user.sub,
+      },
+    });
+  }
+
   return await prisma.task.update({
     where: { id: taskId },
     data: { status },
@@ -376,4 +394,88 @@ export async function createFileRecord(
       groupId,
     },
   });
+}
+
+export async function scheduleMeeting(
+  groupId: number,
+  meetingData: {
+    title: string;
+    scheduledFor: Date;
+    description?: string;
+  }
+) {
+  const session = await getSession();
+  const user = session?.user;
+
+  if (!user?.sub) {
+    throw new Error("Unauthorized");
+  }
+
+  // Create a new task that represents the meeting
+  return await prisma.task.create({
+    data: {
+      title: meetingData.title,
+      description: meetingData.description || "Team meeting with mentor",
+      status: "todo",
+      priority: "high",
+      dueDate: meetingData.scheduledFor,
+      groupId: groupId,
+      // Assign all group members to the meeting
+      assignedTo: {
+        connect: (
+          await prisma.groupMember.findMany({
+            where: { groupId, status: "accepted" },
+            select: { userId: true },
+          })
+        ).map((member) => ({ userId: member.userId })),
+      },
+    },
+    include: {
+      assignedTo: {
+        select: {
+          name: true,
+          userId: true,
+        },
+      },
+    },
+  });
+}
+
+export async function shareResource(
+  groupId: number,
+  resource: {
+    name: string;
+    url: string;
+    type: string;
+    description: string;
+  }
+) {
+  const session = await getSession();
+  const user = session?.user;
+
+  if (!user?.sub) {
+    throw new Error("Unauthorized");
+  }
+
+  // Create a file record and a discussion about the resource
+  const [file, discussion] = await prisma.$transaction([
+    prisma.projectFile.create({
+      data: {
+        name: resource.name,
+        url: resource.url,
+        type: resource.type,
+        size: 0, // Metadata only
+        groupId: groupId,
+      },
+    }),
+    prisma.discussion.create({
+      data: {
+        title: `New Resource: ${resource.name}`,
+        content: resource.description,
+        groupId: groupId,
+      },
+    }),
+  ]);
+
+  return { file, discussion };
 }

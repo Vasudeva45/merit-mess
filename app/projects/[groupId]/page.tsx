@@ -5,15 +5,22 @@ import DiscussionBoard from "@/components/TaskRelated/DiscussionBoard";
 import ProjectFiles from "@/components/TaskRelated/ProjectFiles";
 import ProjectMembers from "@/components/TaskRelated/ProjectMembers";
 import TaskBoard from "@/components/TaskRelated/TaskBoard";
-import CalendarView from "@/components/TaskRelated/CalendarView"; // New import
+import CalendarView from "@/components/TaskRelated/CalendarView";
 import MentorCard from "@/components/TaskRelated/MentorCard";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Loader2, Zap } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { Button } from "@/components/ui/button";
+import MentorActions from "@/components/TaskRelated/MentorActions";
 
 const MAX_DESCRIPTION_LENGTH = 50;
 
@@ -26,7 +33,8 @@ export default function ProjectRoom() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("tasks");
   const [newStatus, setNewStatus] = useState(projectData?.status || "active");
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
+
   const isMentor = user?.sub && projectData?.mentorId === user.sub;
 
   useEffect(() => {
@@ -48,13 +56,12 @@ export default function ProjectRoom() {
 
   const renderMentorActions = () => {
     if (!isMentor) return null;
-
     return (
-      <div className="flex space-x-2 mb-4">
-        <Button variant="outline">Review All Tasks</Button>
-        <Button variant="outline">Schedule Team Meeting</Button>
-        <Button variant="outline">Share Resources</Button>
-      </div>
+      <MentorActions
+        groupId={groupId}
+        onUpdate={fetchProjectData}
+        tasks={projectData?.tasks || []}
+      />
     );
   };
 
@@ -67,11 +74,11 @@ export default function ProjectRoom() {
     }
   };
 
-  const getDisplayDescription = () => {
+  const getShortDescription = () => {
     const description = projectData?.form?.description;
     if (!description) return "";
 
-    if (description.length <= MAX_DESCRIPTION_LENGTH || isDescriptionExpanded) {
+    if (description.length <= MAX_DESCRIPTION_LENGTH) {
       return description;
     }
     return description.slice(0, MAX_DESCRIPTION_LENGTH) + "...";
@@ -95,22 +102,36 @@ export default function ProjectRoom() {
 
   return (
     <div className="mx-auto p-4 space-y-8">
+      {/* Description Dialog/Modal */}
+      <Dialog
+        open={isDescriptionModalOpen}
+        onOpenChange={setIsDescriptionModalOpen}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Project Description</DialogTitle>
+          </DialogHeader>
+          <p className="text-gray-700">{projectData?.form?.description}</p>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold">{projectData?.form?.name}</h1>
           <div className="mt-2">
-            <p className="text-gray-500 inline">{getDisplayDescription()}</p>
+            <p className="text-gray-500 inline">{getShortDescription()}</p>
             {projectData?.form?.description?.length >
               MAX_DESCRIPTION_LENGTH && (
               <button
-                onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                onClick={() => setIsDescriptionModalOpen(true)}
                 className="ml-2 text-blue-500 hover:text-blue-700 text-sm font-medium"
               >
-                {isDescriptionExpanded ? "Show less" : "Show more"}
+                Show more
               </button>
             )}
           </div>
         </div>
+        {/* Rest of the component remains the same */}
         <div className="text-sm text-gray-500">
           Owner:{" "}
           <span className="font-semibold">
@@ -135,6 +156,7 @@ export default function ProjectRoom() {
         </div>
       </div>
 
+      {/* Rest of the component remains the same */}
       {projectData?.mentor && (
         <MentorCard
           mentor={projectData.mentor}
@@ -149,6 +171,7 @@ export default function ProjectRoom() {
         onValueChange={setActiveTab}
         className="space-y-4"
       >
+        {/* Tabs remain the same */}
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="discussions">Discussions</TabsTrigger>
@@ -157,6 +180,7 @@ export default function ProjectRoom() {
           <TabsTrigger value="calendar">Calendar</TabsTrigger>
         </TabsList>
 
+        {/* Tab contents remain the same */}
         <TabsContent value="tasks" className="space-y-4">
           <TaskBoard
             tasks={projectData?.tasks || []}

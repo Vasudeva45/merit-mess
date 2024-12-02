@@ -126,8 +126,9 @@ model Task {
   id          Int          @id @default(autoincrement())
   title       String
   description String?      @db.Text
-  status      String       @default("todo") // todo, in-progress, review, completed
-  priority    String       @default("medium") // low, medium, high
+  // Update the status field comment to include new statuses
+  status      String       @default("todo")
+  priority    String       @default("medium")
   dueDate     DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt

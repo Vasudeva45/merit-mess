@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { redirect } from "next/navigation";
 import { motion } from "framer-motion";
-import { GraduationCap, Star, ChevronRight } from "lucide-react";
+import { GraduationCap, Star, ChevronRight, Zap } from "lucide-react";
 import Link from "next/link";
 
 interface MentorProfile {
@@ -54,7 +54,7 @@ export default function MentorsPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-pulse">
-          <div className="h-12 w-12 bg-secondary rounded-full"></div>
+          <Zap className="h-12 w-12 animate-pulse text-primary" />
         </div>
       </div>
     );

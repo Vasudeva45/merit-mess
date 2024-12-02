@@ -81,7 +81,6 @@ const AchievementsPage = () => {
       <div className="flex justify-center items-center min-h-screen">
         <div className="flex flex-col items-center space-y-4">
           <Zap className="h-12 w-12 animate-pulse text-primary" />
-          <p className="text-muted-foreground">Loading your achievements...</p>
         </div>
       </div>
     );

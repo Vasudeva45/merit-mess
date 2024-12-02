@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import { GetFormById, GetFormWithSubmissions } from "@/actions/form";
 import {
   getFormSubmissionsWithProfiles,
@@ -23,18 +23,50 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format, formatDistance } from "date-fns";
 import { ReactNode } from "react";
-import { FaWpforms, FaUsers } from "react-icons/fa";
-import { HiCursorClick } from "react-icons/hi";
-import { LuView } from "react-icons/lu";
-import { TbArrowBounce } from "react-icons/tb";
+import { Zap, Users as UserIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import SubmissionGroupManager from "@/components/groupRelated/SubmissionGroupManager";
 import { Button } from "@/components/ui/button";
 import { StatusButton } from "@/components/FormRelated/StatusButton";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Separate client-side component for description
 import DescriptionExpander from "@/components/FormRelated/DescriptionExpander";
+
+// Loading component
+function BuilderPageLoading() {
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header section loading */}
+      <div className="py-8 border-b border-muted bg-card">
+        <div className="container max-w-7xl mx-auto px-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="space-y-2 w-full">
+              <div className="flex items-center justify-center h-full">
+                <Zap className="w-12 h-12 animate-pulse text-primary" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="container max-w-7xl mx-auto px-4 py-8">
+        {/* Stats cards loading skeleton */}
+        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((index) => (
+            <Skeleton key={index} className="h-24 w-full" />
+          ))}
+        </div>
+
+        {/* Submissions & Groups loading */}
+        <div className="mt-8">
+          <Skeleton className="h-96 w-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 async function BuilderPage({
   params,
@@ -103,7 +135,7 @@ async function BuilderPage({
         <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
           <StatsCard
             title="Total visits"
-            icon={<LuView className="w-6 h-6" />}
+            icon={<Zap className="w-6 h-6" />}
             helperText="All time form visits"
             value={visits.toLocaleString() ?? "0"}
             loading={false}
@@ -111,7 +143,7 @@ async function BuilderPage({
           />
           <StatsCard
             title="Total submissions"
-            icon={<FaWpforms className="w-6 h-6" />}
+            icon={<Zap className="w-6 h-6" />}
             helperText="All time form submissions"
             value={submissions.toLocaleString() ?? "0"}
             loading={false}
@@ -119,7 +151,7 @@ async function BuilderPage({
           />
           <StatsCard
             title="Submission rate"
-            icon={<HiCursorClick className="w-6 h-6" />}
+            icon={<Zap className="w-6 h-6" />}
             helperText="Visits that result in form submission"
             value={submissionRate.toLocaleString() + "%" || "0"}
             loading={false}
@@ -127,7 +159,7 @@ async function BuilderPage({
           />
           <StatsCard
             title="Bounce rate"
-            icon={<TbArrowBounce className="w-6 h-6" />}
+            icon={<Zap className="w-6 h-6" />}
             helperText="Visits that leave without interacting"
             value={bouncedRate.toLocaleString() + "%" || "0"}
             loading={false}
@@ -150,11 +182,11 @@ async function BuilderPage({
                   value="submissions"
                   className="flex items-center gap-2"
                 >
-                  <FaWpforms className="w-4 h-4" />
+                  <Zap className="w-4 h-4" />
                   Submissions
                 </TabsTrigger>
                 <TabsTrigger value="groups" className="flex items-center gap-2">
-                  <FaUsers className="w-4 h-4" />
+                  <UserIcon className="w-4 h-4" />
                   Groups
                 </TabsTrigger>
               </TabsList>
@@ -313,4 +345,11 @@ function RowCell({ type, value }: { type: ElementsType; value: string }) {
   );
 }
 
-export default BuilderPage;
+// Wrap the page with Suspense for loading state
+export default function BuilderPageWrapper(props: any) {
+  return (
+    <Suspense fallback={<BuilderPageLoading />}>
+      <BuilderPage {...props} />
+    </Suspense>
+  );
+}

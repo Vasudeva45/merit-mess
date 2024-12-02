@@ -9,7 +9,7 @@ import CalendarView from "@/components/TaskRelated/CalendarView"; // New import
 import MentorCard from "@/components/TaskRelated/MentorCard";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2 } from "lucide-react";
+import { Loader2, Zap } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
@@ -80,7 +80,7 @@ export default function ProjectRoom() {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+        <Zap className="h-12 w-12 animate-pulse text-primary" />
       </div>
     );
   }

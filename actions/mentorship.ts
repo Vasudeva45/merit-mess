@@ -265,3 +265,139 @@ export async function updateMentorshipRequestStatus(
 
   throw new Error("Invalid mentorship request status update");
 }
+
+const MentorRatingSchema = z.object({
+  mentorId: z.string(),
+  rating: z.number().min(1).max(5),
+});
+
+export async function rateMentor(input: { mentorId: string; rating: number }) {
+  const session = await getSession();
+  const user = session?.user;
+
+  if (!user?.sub) {
+    throw new Error("Unauthorized");
+  }
+
+  // Decode the mentorId
+  const decodedMentorId = decodeURIComponent(input.mentorId);
+
+  console.log("Current User ID (from session):", user.sub);
+  console.log("Mentor ID (decoded):", decodedMentorId);
+
+  // Prevent rating yourself
+  if (user.sub === decodedMentorId) {
+    throw new Error("You cannot rate yourself");
+  }
+
+  try {
+    // Validate input
+    const validatedInput = MentorRatingSchema.parse({
+      ...input,
+      mentorId: decodedMentorId,
+    });
+
+    // Detailed profile lookup
+    const mentorProfile = await prisma.profile.findUnique({
+      where: {
+        userId: decodedMentorId,
+      },
+      select: {
+        userId: true,
+        name: true,
+      },
+    });
+
+    if (!mentorProfile) {
+      throw new Error(
+        `Mentor profile not found for user ID: ${decodedMentorId}`
+      );
+    }
+
+    // Check if user has already rated this mentor
+    const existingRating = await prisma.mentorRating.findFirst({
+      where: {
+        mentorId: validatedInput.mentorId,
+        raterId: user.sub,
+      },
+    });
+
+    let updatedMentorRating;
+
+    if (existingRating) {
+      // Update existing rating
+      updatedMentorRating = await prisma.mentorRating.update({
+        where: { id: existingRating.id },
+        data: {
+          rating: validatedInput.rating,
+        },
+      });
+    } else {
+      // Create new rating
+      updatedMentorRating = await prisma.mentorRating.create({
+        data: {
+          mentorId: validatedInput.mentorId,
+          raterId: user.sub,
+          rating: validatedInput.rating,
+        },
+      });
+    }
+
+    // Recalculate mentor's average rating
+    const mentorRatings = await prisma.mentorRating.findMany({
+      where: { mentorId: validatedInput.mentorId },
+    });
+
+    const averageRating =
+      mentorRatings.length > 0
+        ? mentorRatings.reduce((sum, r) => sum + r.rating, 0) /
+          mentorRatings.length
+        : 0;
+
+    // Update mentor's profile with new average rating
+    await prisma.profile.update({
+      where: { userId: validatedInput.mentorId },
+      data: {
+        mentorRating: averageRating,
+      },
+    });
+
+    // Revalidate the mentor's profile path
+    revalidatePath(`/profile/${validatedInput.mentorId}`);
+
+    return {
+      message: "Rating submitted successfully",
+      averageRating,
+    };
+  } catch (error) {
+    console.error("Mentor Rating Error:", error);
+    throw error;
+  }
+}
+
+export async function checkIfUserHasRatedMentor(mentorId: string) {
+  const session = await getSession();
+  const user = session?.user;
+
+  if (!user?.sub) {
+    throw new Error("Unauthorized");
+  }
+
+  // Prevent rating yourself
+  if (user.sub === mentorId) {
+    return { hasRated: false, canRate: false };
+  }
+
+  const existingRating = await prisma.mentorRating.findFirst({
+    where: {
+      mentorId: mentorId,
+      raterId: user.sub,
+    },
+  });
+
+  return {
+    hasRated: !!existingRating,
+    canRate: true,
+    existingRating: existingRating?.rating || null,
+  };
+}

@@ -1,6 +1,6 @@
 // app/api/profile/[userId]/route.ts
-import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
 
 export async function GET(
   request: Request,
@@ -10,7 +10,7 @@ export async function GET(
     const profile = await prisma.profile.findUnique({
       where: {
         userId: params.userId,
-        type: 'mentor',
+        type: "mentor",
       },
       select: {
         userId: true,
@@ -34,16 +34,16 @@ export async function GET(
 
     if (!profile) {
       return NextResponse.json(
-        { error: 'Mentor profile not found' },
+        { error: "Mentor profile not found" },
         { status: 404 }
       );
     }
 
     return NextResponse.json(profile);
   } catch (error) {
-    console.error('Error fetching mentor profile:', error);
+    console.error("Error fetching mentor profile:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch mentor profile' },
+      { error: "Failed to fetch mentor profile" },
       { status: 500 }
     );
   }

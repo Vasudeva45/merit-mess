@@ -26,12 +26,15 @@ import {
   Linkedin,
   Github,
   Trophy,
+  Zap,
   BookOpen,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import {
   createMentorshipRequest,
   getMyProjectGroups,
+  checkIfUserHasRatedMentor,
+  rateMentor,
 } from "@/actions/mentorship";
 import { toast } from "sonner";
 
@@ -43,13 +46,21 @@ export default function MentorProfilePage({
   const searchParams = useSearchParams();
   const isAlreadyMentor = searchParams.get("isProjectMentor") === "true";
 
-  const [mentor, setMentor] = useState(null);
+  const [mentor, setMentor] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [projectGroups, setProjectGroups] = useState([]);
   const [selectedProjectGroup, setSelectedProjectGroup] = useState(null);
   const [mentorshipMessage, setMentorshipMessage] = useState("");
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
+
+  // New state for rating
+  const [isRatingDialogOpen, setIsRatingDialogOpen] = useState(false);
+  const [userRating, setUserRating] = useState(0);
+  const [canRate, setCanRate] = useState(false);
+  const [hasRated, setHasRated] = useState(false);
+
+  const [isRatingSubmitting, setIsRatingSubmitting] = useState(false);
 
   React.useEffect(() => {
     const fetchMentorProfile = async () => {
@@ -61,6 +72,18 @@ export default function MentorProfilePage({
         const data = await response.json();
         setMentor(data);
         setLoading(false);
+
+        // Check if user can rate this mentor
+        try {
+          const ratingCheck = await checkIfUserHasRatedMentor(params.userId);
+          setCanRate(ratingCheck.canRate);
+          setHasRated(ratingCheck.hasRated);
+          if (ratingCheck.hasRated) {
+            setUserRating(ratingCheck.existingRating);
+          }
+        } catch (ratingError) {
+          console.error("Rating check error:", ratingError);
+        }
       } catch (err) {
         setError(err.message);
         setLoading(false);
@@ -69,6 +92,97 @@ export default function MentorProfilePage({
 
     fetchMentorProfile();
   }, [params.userId]);
+
+  const openRatingDialog = () => {
+    setIsRatingDialogOpen(true);
+  };
+
+  const handleRating = async () => {
+    if (userRating === 0) {
+      toast({
+        title: "Error",
+        description: "Please select a rating",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsRatingSubmitting(true); // Start loading state
+
+      const result = await rateMentor({
+        mentorId: params.userId,
+        rating: userRating,
+      });
+
+      // Update mentor's rating in the local state
+      setMentor((prev) => ({
+        ...prev,
+        mentorRating: result.averageRating,
+      }));
+
+      setIsRatingDialogOpen(false);
+      setHasRated(true);
+
+      toast({
+        title: "Success",
+        description: "Mentor rated successfully",
+        variant: "default",
+      });
+    } catch (err) {
+      // If it's a self-rating error, show an error state in the dialog
+      if (err.message.includes("You cannot rate yourself")) {
+        setRatingError("You cannot rate your own profile");
+      } else {
+        toast({
+          title: "Error",
+          description: err.message,
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsRatingSubmitting(false); // End loading state
+    }
+  };
+
+  const [ratingError, setRatingError] = useState<string | null>(null);
+
+  const renderStarRating = () => {
+    return [1, 2, 3, 4, 5].map((star) => (
+      <Star
+        key={star}
+        className={`h-8 w-8 cursor-pointer ${
+          star <= userRating
+            ? "fill-yellow-400 text-yellow-400"
+            : "text-gray-300"
+        }`}
+        onClick={() => setUserRating(star)}
+      />
+    ));
+  };
+
+  const renderRatingButton = () => {
+    if (!canRate) return null;
+
+    return (
+      <Button variant="outline" size="sm" onClick={openRatingDialog}>
+        {hasRated ? "Update Rating" : "Rate Mentor"}
+      </Button>
+    );
+  };
+
+  const ratingSection =
+    mentor && mentor.mentorRating != null ? (
+      <span className="flex items-center gap-1">
+        <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+        <span className="font-medium">
+          {Number(mentor.mentorRating).toFixed(1)}
+        </span>
+        {renderRatingButton()}
+      </span>
+    ) : (
+      renderRatingButton()
+    );
 
   const openMentorshipRequestDialog = async () => {
     try {
@@ -186,14 +300,7 @@ export default function MentorProfilePage({
                 </p>
               )}
               <div className="flex items-center gap-4 mb-4">
-                {mentor.mentorRating && (
-                  <span className="flex items-center gap-1">
-                    <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                    <span className="font-medium">
-                      {mentor.mentorRating.toFixed(1)}
-                    </span>
-                  </span>
-                )}
+                {ratingSection}
                 {mentor.yearsOfExperience && (
                   <span className="flex items-center gap-1">
                     <Calendar className="h-5 w-5" />
@@ -344,6 +451,66 @@ export default function MentorProfilePage({
               Send Mentorship Request
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isRatingDialogOpen} onOpenChange={setIsRatingDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Rate Mentor</DialogTitle>
+          </DialogHeader>
+          <div className="flex justify-center gap-2 py-4">
+            {renderStarRating()}
+          </div>
+          <Button
+            onClick={handleRating}
+            disabled={userRating === 0}
+            className="w-full"
+          >
+            Submit Rating
+          </Button>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={isRatingDialogOpen}
+        onOpenChange={(open) => {
+          setIsRatingDialogOpen(open);
+          if (!open) {
+            setRatingError(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Rate Mentor</DialogTitle>
+          </DialogHeader>
+
+          {/* Show error message if exists */}
+          {ratingError && (
+            <div
+              className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative"
+              role="alert"
+            >
+              <span className="block sm:inline">{ratingError}</span>
+            </div>
+          )}
+
+          <div className="flex justify-center gap-2 py-4">
+            {renderStarRating()}
+          </div>
+          <Button
+            onClick={handleRating}
+            disabled={userRating === 0 || isRatingSubmitting}
+            className="w-full"
+          >
+            {isRatingSubmitting ? (
+              <div className="flex items-center justify-center">
+                <Zap className="h-4 w-4 mr-2 animate-pulse" />
+                Submitting...
+              </div>
+            ) : (
+              "Submit Rating"
+            )}
+          </Button>
         </DialogContent>
       </Dialog>
     </div>

@@ -74,6 +74,9 @@ model Profile {
   
   mentorRequests       MentorshipRequest[] @relation("MentorRequests")
   requestedMentorships MentorshipRequest[] @relation("RequestedMentorships")
+
+  mentorRatings     MentorRating[] @relation("MentorRatings")
+  ratedMentors      MentorRating[] @relation("RaterProfiles")
 }
 
 model MentorshipRequest {
@@ -89,6 +92,20 @@ model MentorshipRequest {
   mentor        Profile      @relation("MentorRequests", fields: [mentorId], references: [userId])
   projectGroup  ProjectGroup @relation(fields: [projectGroupId], references: [id])
   requester     Profile      @relation("RequestedMentorships", fields: [requesterId], references: [userId])
+}
+
+model MentorRating {
+  id        Int      @id @default(autoincrement())
+  mentorId  String
+  raterId   String
+  rating    Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  mentor    Profile  @relation("MentorRatings", fields: [mentorId], references: [userId])
+  rater     Profile  @relation("RaterProfiles", fields: [raterId], references: [userId])
+
+  @@unique([mentorId, raterId])
 }
 
 model ProjectGroup {

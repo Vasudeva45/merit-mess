@@ -40,11 +40,17 @@ export default function MentorCard({
           </div>
 
           <div className="flex gap-2">
-            <Link href={`/mentor/${mentor.userId}?isProjectMentor=true`}>
+            <Link
+              href={`/mentor/${mentor.userId}?isProjectMentor=true`}
+              target="_blank"
+            >
               <Button variant="outline">View Profile</Button>
             </Link>
             <Button variant="default" disabled={projectHasMentor} asChild>
-              <Link href={`/mentor/${mentor.userId}?isProjectMentor=true`}>
+              <Link
+                href={`/mentor/${mentor.userId}?isProjectMentor=true`}
+                target="_blank"
+              >
                 {projectHasMentor ? "Project Has Mentor" : "Request Mentorship"}
               </Link>
             </Button>

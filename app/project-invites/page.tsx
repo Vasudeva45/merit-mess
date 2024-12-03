@@ -163,8 +163,7 @@ const ProjectDashboard = () => {
   // Project card renderer
   const renderProjectCard = (project) => {
     const handleProjectNavigation = () => {
-      setNavigatingProject(project.id);
-      router.push(`/projects/${project.id}`);
+      window.open(`/projects/${project.id}`, "_blank");
     };
 
     const isNavigating = navigatingProject === project.id;

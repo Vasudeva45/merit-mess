@@ -61,6 +61,9 @@ export default function MentorProfilePage({
   const [hasRated, setHasRated] = useState(false);
 
   const [isRatingSubmitting, setIsRatingSubmitting] = useState(false);
+  const [isRequestSubmitting, setIsRequestSubmitting] = useState(false);
+  const [isExistingRequestModalOpen, setIsExistingRequestModalOpen] =
+    useState(false);
 
   React.useEffect(() => {
     const fetchMentorProfile = async () => {
@@ -209,6 +212,8 @@ export default function MentorProfilePage({
     }
 
     try {
+      setIsRequestSubmitting(true); // Start loading state
+
       const request = await createMentorshipRequest({
         mentorId: params.userId,
         projectGroupId: selectedProjectGroup,
@@ -225,11 +230,21 @@ export default function MentorProfilePage({
       setSelectedProjectGroup(null);
       setMentorshipMessage("");
     } catch (err) {
-      toast({
-        title: "Error",
-        description: err.message,
-        variant: "destructive",
-      });
+      // Check if the error is due to an existing request
+      if (
+        err.message === "A mentorship request for this project already exists"
+      ) {
+        setIsRequestDialogOpen(false);
+        setIsExistingRequestModalOpen(true);
+      } else {
+        toast({
+          title: "Error",
+          description: err.message,
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsRequestSubmitting(false); // End loading state
     }
   };
 
@@ -445,10 +460,17 @@ export default function MentorProfilePage({
 
             <Button
               onClick={handleOrderMentorship}
-              disabled={!selectedProjectGroup}
+              disabled={!selectedProjectGroup || isRequestSubmitting}
               className="w-full"
             >
-              Send Mentorship Request
+              {isRequestSubmitting ? (
+                <div className="flex items-center justify-center">
+                  <Zap className="h-4 w-4 mr-2 animate-pulse" />
+                  Sending Request...
+                </div>
+              ) : (
+                "Send Mentorship Request"
+              )}
             </Button>
           </div>
         </DialogContent>
@@ -511,6 +533,28 @@ export default function MentorProfilePage({
               "Submit Rating"
             )}
           </Button>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={isExistingRequestModalOpen}
+        onOpenChange={setIsExistingRequestModalOpen}
+      >
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Existing Mentorship Request</DialogTitle>
+          </DialogHeader>
+          <div className="p-4 text-center">
+            <p className="mb-4">
+              You already have a pending mentorship request for this project
+              group.
+            </p>
+            <Button
+              onClick={() => setIsExistingRequestModalOpen(false)}
+              className="w-full"
+            >
+              Close
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

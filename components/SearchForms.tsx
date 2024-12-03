@@ -62,11 +62,9 @@ const TruncatedDescription = ({ description, maxLength = 100 }) => {
   return (
     <div>
       <p>
-        {isExpanded 
-          ? description 
-          : `${description.slice(0, maxLength)}...`}
+        {isExpanded ? description : `${description.slice(0, maxLength)}...`}
       </p>
-      <button 
+      <button
         onClick={() => setIsExpanded(!isExpanded)}
         className="text-primary text-sm flex items-center gap-1 mt-1 hover:underline"
       >
@@ -132,6 +130,7 @@ const FormGrid = ({ forms }: { forms: Form[] }) => {
               <div className="flex items-center gap-2">
                 <a
                   href={`/publicprofile/${encodeURIComponent(form.userId)}`}
+                  target="_blank"
                   className="flex items-center gap-2 hover:text-primary transition-colors"
                 >
                   <Avatar className="h-8 w-8">

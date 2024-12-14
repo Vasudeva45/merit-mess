@@ -15,14 +15,27 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Zap } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Loader2, Zap, Check, ChevronDown } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import MentorActions from "@/components/TaskRelated/MentorActions";
+import { toast } from "sonner";
 
 const MAX_DESCRIPTION_LENGTH = 50;
+const PROJECT_STATUSES = {
+  active: { label: "Active", variant: "default" },
+  completed: { label: "Completed", variant: "success" },
+  archived: { label: "Archived", variant: "secondary" },
+};
 
 export default function ProjectRoom() {
   const params = useParams();
@@ -32,27 +45,32 @@ export default function ProjectRoom() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("tasks");
-  const [newStatus, setNewStatus] = useState(projectData?.status || "active");
+  const [newStatus, setNewStatus] = useState("active");
+  const [isStatusUpdating, setIsStatusUpdating] = useState(false);
   const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
 
   const isMentor = user?.sub && projectData?.mentorId === user.sub;
+  const isOwnerOrAdmin = projectData?.members.some(
+    (m) => m.userId === user?.sub && (m.role === "owner" || m.role === "admin")
+  );
 
-  useEffect(() => {
-    fetchProjectData();
-  }, [groupId]);
-
-  const fetchProjectData = async () => {
+  const fetchProjectData = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getProjectDetails(groupId);
       setProjectData(data);
-      setNewStatus(data.status);
+      setNewStatus(data.status || "active");
     } catch (err) {
       setError("Failed to load project details");
+      toast({
+        title: "Error",
+        description: "Failed to load project details",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [groupId]);
 
   const renderMentorActions = () => {
     if (!isMentor) return null;
@@ -65,12 +83,47 @@ export default function ProjectRoom() {
     );
   };
 
-  const updateProjectStatusHandler = async () => {
+  useEffect(() => {
+    fetchProjectData();
+  }, [fetchProjectData]);
+
+  const updateProjectStatusHandler = async (selectedStatus: string) => {
+    // Only allow update if user is owner or admin
+    if (!isOwnerOrAdmin) {
+      toast({
+        title: "Unauthorized",
+        description: "Only project owners or admins can change project status",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      await updateProjectStatus(groupId, newStatus);
-      fetchProjectData();
+      // Immediately update the local state
+      setNewStatus(selectedStatus);
+      setIsStatusUpdating(true);
+
+      // Update the status on the server
+      await updateProjectStatus(groupId, selectedStatus);
+
+      // Optionally refetch to ensure consistency
+      await fetchProjectData();
+
+      toast({
+        title: "Success",
+        description: "Project status updated successfully",
+      });
     } catch (err) {
-      setError("Failed to update project status");
+      // Revert the status if update fails
+      setNewStatus(projectData?.status || "active");
+
+      toast({
+        title: "Error",
+        description: err.message || "Failed to update project status",
+        variant: "destructive",
+      });
+    } finally {
+      setIsStatusUpdating(false);
     }
   };
 
@@ -131,32 +184,71 @@ export default function ProjectRoom() {
             )}
           </div>
         </div>
-        {/* Rest of the component remains the same */}
-        <div className="text-sm text-gray-500">
-          Owner:{" "}
-          <span className="font-semibold">
-            {
-              projectData?.members.find((m) => m.role === "owner")?.profile
-                ?.name
-            }
-          </span>
-        </div>
-        <div className="text-sm text-gray-500">
-          Status:{" "}
-          <select
-            value={newStatus}
-            onChange={(e) => setNewStatus(e.target.value)}
-            onBlur={updateProjectStatusHandler}
-            className="px-4 py-2 border rounded-md"
-          >
-            <option value="active">Active</option>
-            <option value="completed">Completed</option>
-            <option value="archived">Archived</option>
-          </select>
+
+        <div className="flex items-center space-x-4">
+          <div className="text-sm text-gray-500">
+            Owner:{" "}
+            <span className="font-semibold">
+              {
+                projectData?.members.find((m) => m.role === "owner")?.profile
+                  ?.name
+              }
+            </span>
+          </div>
+
+          <div className="text-sm text-gray-500 flex items-center">
+            Status:{" "}
+            {isOwnerOrAdmin ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild disabled={isStatusUpdating}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="ml-2 flex items-center"
+                  >
+                    <Badge
+                      variant={PROJECT_STATUSES[newStatus].variant}
+                      className="mr-2"
+                    >
+                      {PROJECT_STATUSES[newStatus].label}
+                    </Badge>
+                    {isStatusUpdating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  {Object.keys(PROJECT_STATUSES)
+                    .filter((status) => status !== newStatus)
+                    .map((status) => (
+                      <DropdownMenuItem
+                        key={status}
+                        onSelect={() => updateProjectStatusHandler(status)}
+                      >
+                        <Badge
+                          variant={PROJECT_STATUSES[status].variant}
+                          className="mr-2"
+                        >
+                          {PROJECT_STATUSES[status].label}
+                        </Badge>
+                      </DropdownMenuItem>
+                    ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Badge
+                variant={PROJECT_STATUSES[newStatus].variant}
+                className="ml-2"
+              >
+                {PROJECT_STATUSES[newStatus].label}
+              </Badge>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Rest of the component remains the same */}
       {projectData?.mentor && (
         <MentorCard
           mentor={projectData.mentor}
@@ -171,7 +263,6 @@ export default function ProjectRoom() {
         onValueChange={setActiveTab}
         className="space-y-4"
       >
-        {/* Tabs remain the same */}
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="discussions">Discussions</TabsTrigger>
@@ -180,7 +271,6 @@ export default function ProjectRoom() {
           <TabsTrigger value="calendar">Calendar</TabsTrigger>
         </TabsList>
 
-        {/* Tab contents remain the same */}
         <TabsContent value="tasks" className="space-y-4">
           <TaskBoard
             tasks={projectData?.tasks || []}

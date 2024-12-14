@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { Calendar, momentLocalizer, Views } from "react-big-calendar";
+import React, { useMemo, useState, useCallback } from "react";
+import { Calendar, momentLocalizer, Views, Navigate } from "react-big-calendar";
 import moment from "moment";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { useUser } from "@auth0/nextjs-auth0/client";
@@ -11,28 +11,37 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Check, Clock, AlertCircle, Eye, Edit } from "lucide-react";
+import {
+  Check,
+  Clock,
+  AlertCircle,
+  Eye,
+  Edit,
+  ChevronLeft,
+  ChevronRight,
+  Calendar as CalendarIcon,
+} from "lucide-react";
 
 // Initialize the localizer
 const localizer = momentLocalizer(moment);
 
-// Status color and icon mapping
+// Status configuration
 const STATUS_CONFIGS = {
   todo: {
-    color: "bg-gray-200 text-gray-800",
     icon: <Clock className="mr-2 h-4 w-4" />,
+    label: "To Do",
   },
   "in-progress": {
-    color: "bg-yellow-200 text-yellow-800",
     icon: <Eye className="mr-2 h-4 w-4" />,
+    label: "In Progress",
   },
   review: {
-    color: "bg-blue-200 text-blue-800",
     icon: <AlertCircle className="mr-2 h-4 w-4" />,
+    label: "Review",
   },
   completed: {
-    color: "bg-green-200 text-green-800",
     icon: <Check className="mr-2 h-4 w-4" />,
+    label: "Completed",
   },
 };
 
@@ -57,6 +66,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 }) => {
   const { user } = useUser();
   const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [date, setDate] = useState(new Date());
+  const [view, setView] = useState(Views.MONTH);
 
   // Transform tasks into calendar events, filtering for the current user
   const events = useMemo(() => {
@@ -75,15 +86,102 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       }));
   }, [tasks, user]);
 
-  // Custom event styling
-  const eventStyleGetter = (event: any) => {
-    const statusConfig =
-      STATUS_CONFIGS[event.status as keyof typeof STATUS_CONFIGS] ||
-      STATUS_CONFIGS.todo;
+  // Custom date cell styling
+  const dayPropGetter = useCallback((date: Date) => {
+    const today = new Date();
+    const isToday =
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear();
+
+    const isCurrentMonth = date.getMonth() === today.getMonth();
+
     return {
-      className: `${statusConfig.color} rounded-md p-1 opacity-90`,
+      className: `
+        rbc-day-cell 
+        ${
+          isToday
+            ? "bg-white dark:bg-neutral-900 border-2 border-primary dark:border-primary rounded-full"
+            : ""
+        }
+        ${
+          !isCurrentMonth
+            ? "text-neutral-400 dark:text-neutral-600 bg-neutral-50 dark:bg-neutral-900/50"
+            : "text-neutral-800 dark:text-neutral-200"
+        }
+        hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors
+      `,
     };
-  };
+  }, []);
+
+  // Custom event styling
+  const eventStyleGetter = useCallback(
+    (event) => ({
+      className: `rbc-event rbc-event-custom rounded-md p-1 text-sm 
+      ${event.status === "completed" ? "opacity-50" : "opacity-90"}
+      ${
+        event.status === "todo"
+          ? "bg-neutral-200 text-neutral-800"
+          : event.status === "in-progress"
+          ? "bg-blue-100 text-blue-800"
+          : event.status === "review"
+          ? "bg-yellow-100 text-yellow-800"
+          : "bg-green-100 text-green-800"
+      }`,
+    }),
+    []
+  );
+
+  // Custom toolbar component
+  const CustomToolbar = useCallback(
+    ({ label, onNavigate, onView }) => {
+      return (
+        <div className="flex justify-between items-center p-4 border-b">
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => onNavigate(Navigate.PREVIOUS)}
+              className="hover:bg-neutral-100 dark:hover:bg-neutral-700 p-2 rounded-md transition-colors"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => onNavigate(Navigate.NEXT)}
+              className="hover:bg-neutral-100 dark:hover:bg-neutral-700 p-2 rounded-md transition-colors"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => onNavigate(Navigate.TODAY)}
+              className="flex items-center gap-2 px-3 py-2 bg-neutral-100 dark:bg-neutral-800 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors text-sm"
+            >
+              <CalendarIcon className="h-4 w-4" />
+              Today
+            </button>
+          </div>
+
+          <div className="text-xl font-semibold">{label}</div>
+
+          <div className="flex space-x-2">
+            {Object.values(Views).map((viewOption) => (
+              <button
+                key={viewOption}
+                onClick={() => onView(viewOption)}
+                className={`px-3 py-2 rounded-md text-sm transition-colors 
+                ${
+                  view === viewOption
+                    ? "bg-neutral-800 dark:bg-neutral-200 text-white dark:text-neutral-900"
+                    : "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                }`}
+              >
+                {viewOption.charAt(0).toUpperCase() + viewOption.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    },
+    [view]
+  );
 
   // Handle event selection
   const handleSelectEvent = (event: any) => {
@@ -103,17 +201,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>{selectedTask.title}</DialogTitle>
-            <DialogDescription>Task Details and Actions</DialogDescription>
+            <DialogDescription>
+              Due Date: {moment(selectedTask.dueDate).format("MMMM Do, YYYY")}
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             {/* Task Status */}
             <div className="flex items-center">
-              <span
-                className={`flex items-center ${statusConfig.color} px-2 py-1 rounded-md`}
-              >
+              <span className="flex items-center bg-neutral-100 dark:bg-neutral-800 px-2 py-1 rounded-md">
                 {statusConfig.icon}
-                {selectedTask.status.replace("-", " ")}
+                {statusConfig.label}
               </span>
             </div>
 
@@ -121,7 +219,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             {selectedTask.description && (
               <div>
                 <h4 className="font-semibold text-sm mb-2">Description</h4>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-neutral-600 dark:text-neutral-300">
                   {selectedTask.description}
                 </p>
               </div>
@@ -147,7 +245,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     onTaskEdit(selectedTask.id);
                     setSelectedTask(null);
                   }}
-                  className="flex items-center bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600"
+                  className="flex items-center bg-neutral-800 dark:bg-neutral-200 text-white dark:text-neutral-900 px-3 py-2 rounded-md hover:bg-neutral-700 dark:hover:bg-neutral-300 transition-colors"
                 >
                   <Edit className="mr-2 h-4 w-4" /> Edit Task
                 </button>
@@ -167,10 +265,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             onTaskStatusUpdate(selectedTask.id, status);
                             setSelectedTask(null);
                           }}
-                          className={`flex items-center ${config.color} px-3 py-2 rounded-md hover:opacity-80`}
+                          className="flex items-center bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 px-3 py-2 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
                         >
                           {config.icon}
-                          {status.replace("-", " ")}
+                          {config.label}
                         </button>
                       );
                     })}
@@ -186,7 +284,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   // If no tasks or no user, show a message
   if (!user || events.length === 0) {
     return (
-      <div className="text-center text-gray-500 py-10">
+      <div className="text-center text-neutral-500 py-10">
         {!user
           ? "Please log in to view your tasks"
           : "No tasks assigned to you"}
@@ -195,18 +293,35 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   }
 
   return (
-    <div className="h-[600px] relative">
+    <div className="h-[600px] relative bg-white dark:bg-neutral-900 shadow-sm rounded-lg overflow-hidden">
       <Calendar
         localizer={localizer}
         events={events}
         startAccessor="start"
         endAccessor="end"
+        date={date}
+        onNavigate={(newDate, view, action) => {
+          // Ensure date is updated on navigation
+          setDate(newDate);
+        }}
+        onView={(newView) => {
+          // Update the view state
+          setView(newView);
+        }}
+        view={view}
         style={{ height: "100%" }}
         eventStyleGetter={eventStyleGetter}
+        dayPropGetter={dayPropGetter}
         views={[Views.MONTH, Views.WEEK, Views.DAY]}
-        defaultView={Views.MONTH}
+        components={{
+          toolbar: CustomToolbar,
+        }}
         onSelectEvent={handleSelectEvent}
-        tooltipAccessor={(event) => `${event.title}\nStatus: ${event.status}`}
+        tooltipAccessor={(event) =>
+          `${event.title}\nStatus: ${
+            STATUS_CONFIGS[event.status as keyof typeof STATUS_CONFIGS]?.label
+          }`
+        }
       />
       {renderTaskDetailsDialog()}
     </div>

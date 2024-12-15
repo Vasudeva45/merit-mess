@@ -77,6 +77,8 @@ model Profile {
 
   mentorRatings     MentorRating[] @relation("MentorRatings")
   ratedMentors      MentorRating[] @relation("RaterProfiles")
+  
+  createdMeetings Meeting[]
 }
 
 model MentorshipRequest {
@@ -126,6 +128,7 @@ model ProjectGroup {
   files        ProjectFile[]
   status       String        @default("active")
   mentorshipRequests   MentorshipRequest[]
+  meetings      Meeting[]
 }
 
 model GroupMember {
@@ -189,4 +192,18 @@ model ProjectFile {
   uploadedAt  DateTime     @default(now())
   groupId     Int
   group       ProjectGroup @relation(fields: [groupId], references: [id])
+  isResource  Boolean      @default(false)  // New field to distinguish resources
+}
+
+model Meeting {
+  id            Int          @id @default(autoincrement())
+  title         String
+  description   String?
+  scheduledFor  DateTime
+  meetLink      String?
+  groupId       Int
+  createdBy     String
+  group         ProjectGroup @relation(fields: [groupId], references: [id])
+  creatorProfile Profile     @relation(fields: [createdBy], references: [userId])
+  status        String       @default("scheduled") // scheduled, completed, cancelled
 }

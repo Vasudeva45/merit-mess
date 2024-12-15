@@ -1,10 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -20,9 +17,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FileUp, Download, File, Loader2, Eye, Link, ExternalLink } from "lucide-react";
+import {
+  FileUp,
+  Download,
+  File,
+  Loader2,
+  Eye,
+  Link,
+  ExternalLink,
+  MoreHorizontal,
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const ProjectFiles = ({ files, groupId, onUpdate }) => {
   const [uploading, setUploading] = useState(false);
@@ -46,29 +58,29 @@ const ProjectFiles = ({ files, groupId, onUpdate }) => {
 
     try {
       setUploading(true);
-      
+
       // Create FormData
       const formData = new FormData();
-      formData.append('file', file);
-      formData.append('groupId', groupId.toString());
+      formData.append("file", file);
+      formData.append("groupId", groupId.toString());
 
       // Upload file
-      const response = await fetch('/api/upload-project-file', {
-        method: 'POST',
+      const response = await fetch("/api/upload-project-file", {
+        method: "POST",
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('Upload failed');
+        throw new Error("Upload failed");
       }
 
       const data = await response.json();
-      
+
       toast({
         title: "Success",
         description: "File uploaded successfully",
       });
-      
+
       onUpdate();
     } catch (error) {
       console.error("Failed to upload file:", error);
@@ -80,7 +92,7 @@ const ProjectFiles = ({ files, groupId, onUpdate }) => {
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        fileInputRef.current.value = "";
       }
     }
   };
@@ -116,34 +128,35 @@ const ProjectFiles = ({ files, groupId, onUpdate }) => {
   };
 
   const isViewableFile = (type: string) => {
-    return type.startsWith('image/') || 
-           type === 'application/pdf' || 
-           type.startsWith('text/') ||
-           type === 'application/json';
+    return (
+      type.startsWith("image/") ||
+      type === "application/pdf" ||
+      type.startsWith("text/") ||
+      type === "application/json"
+    );
   };
 
   const renderFilePreview = (file) => {
-    if (file.type.startsWith('image/')) {
+    if (file.type.startsWith("image/")) {
       return (
-        <img 
-          src={file.url} 
-          alt={file.name} 
+        <img
+          src={file.url}
+          alt={file.name}
           className="max-w-full h-auto max-h-[70vh] object-contain"
         />
       );
-    } else if (file.type === 'application/pdf') {
+    } else if (file.type === "application/pdf") {
       return (
-        <iframe 
-          src={file.url} 
-          className="w-full h-[70vh]" 
-          title={file.name}
-        />
+        <iframe src={file.url} className="w-full h-[70vh]" title={file.name} />
       );
-    } else if (file.type.startsWith('text/') || file.type === 'application/json') {
+    } else if (
+      file.type.startsWith("text/") ||
+      file.type === "application/json"
+    ) {
       return (
-        <iframe 
-          src={file.url} 
-          className="w-full h-[70vh] bg-white" 
+        <iframe
+          src={file.url}
+          className="w-full h-[70vh] bg-white"
           title={file.name}
         />
       );
@@ -164,8 +177,8 @@ const ProjectFiles = ({ files, groupId, onUpdate }) => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Project Files</h2>
+      <div className="flex flex-col sm:flex-row justify-between items-center space-y-2 sm:space-y-0">
+        <h2 className="text-xl sm:text-2xl font-bold">Project Files</h2>
         <div>
           <input
             type="file"
@@ -176,7 +189,7 @@ const ProjectFiles = ({ files, groupId, onUpdate }) => {
             disabled={uploading}
           />
           <label htmlFor="file-upload">
-            <Button asChild disabled={uploading}>
+            <Button asChild disabled={uploading} className="w-full sm:w-auto">
               <span>
                 {uploading ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -192,7 +205,8 @@ const ProjectFiles = ({ files, groupId, onUpdate }) => {
 
       <Card>
         <CardContent className="p-0">
-          <Table>
+          {/* Desktop Table View */}
+          <Table className="hidden sm:table">
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
@@ -253,11 +267,65 @@ const ProjectFiles = ({ files, groupId, onUpdate }) => {
               )}
             </TableBody>
           </Table>
+
+          {/* Mobile List View */}
+          <div className="sm:hidden">
+            {files.length === 0 ? (
+              <div className="text-center text-gray-500 p-4">
+                No files uploaded yet
+              </div>
+            ) : (
+              files.map((file) => (
+                <div
+                  key={file.id}
+                  className="flex justify-between items-center p-4 border-b hover:bg-gray-50"
+                >
+                  <div className="flex items-center space-x-3">
+                    <File className="h-5 w-5 text-gray-500" />
+                    <div>
+                      <p className="font-medium text-sm">{file.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {formatFileSize(file.size)} • {file.type}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {formatDistanceToNow(new Date(file.uploadedAt), {
+                          addSuffix: true,
+                        })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild>
+                        <a href={file.url} download>
+                          <Download className="mr-2 h-4 w-4" /> Download
+                        </a>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => copyViewUrl(file.viewUrl)}
+                      >
+                        <Link className="mr-2 h-4 w-4" /> Copy Link
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSelectedFile(file)}>
+                        <Eye className="mr-2 h-4 w-4" /> Preview
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              ))
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      <Dialog 
-        open={!!selectedFile} 
+      <Dialog
+        open={!!selectedFile}
         onOpenChange={(open) => !open && setSelectedFile(null)}
       >
         <DialogContent className="max-w-4xl w-full">

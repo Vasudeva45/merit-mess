@@ -7,7 +7,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Crown, Mail, Building, MapPin } from "lucide-react";
+import { Crown, Mail, Building, MapPin, UserCheck } from "lucide-react";
 import { getProfilesByIds } from "@/actions/profile";
 
 const ProjectMembers = ({ members }) => {
@@ -16,7 +16,7 @@ const ProjectMembers = ({ members }) => {
   useEffect(() => {
     const fetchProfiles = async () => {
       try {
-        const userIds = members.map((member) => member.userId);
+        const userIds = [...new Set(members.map((member) => member.userId))];
         const fetchedProfiles = await getProfilesByIds(userIds);
         const profileMap = fetchedProfiles.reduce((acc, profile) => {
           acc[profile.userId] = profile;
@@ -31,8 +31,31 @@ const ProjectMembers = ({ members }) => {
     fetchProfiles();
   }, [members]);
 
-  // Filter out rejected members and sort remaining members
-  const filteredAndSortedMembers = [...members]
+  // Deduplicate members based on userId and prioritize roles
+  const dedupedMembers = members.reduce((acc, member) => {
+    const existingMemberIndex = acc.findIndex(
+      (m) => m.userId === member.userId
+    );
+
+    if (existingMemberIndex === -1) {
+      // If no existing member, add this one
+      acc.push(member);
+    } else {
+      // If existing member, prioritize roles
+      const existingMember = acc[existingMemberIndex];
+      if (
+        member.role === "owner" ||
+        (existingMember.role !== "owner" && member.status === "accepted")
+      ) {
+        acc[existingMemberIndex] = member;
+      }
+    }
+
+    return acc;
+  }, []);
+
+  // Sort deduplicated members
+  const sortedMembers = dedupedMembers
     .filter((member) => member.status !== "rejected")
     .sort((a, b) => {
       if (a.role === "owner") return -1;
@@ -41,21 +64,21 @@ const ProjectMembers = ({ members }) => {
     });
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-bold">Project Members</h2>
-      <div className="grid grid-cols-2 gap-4">
-        {filteredAndSortedMembers.map((member) => {
+    <div className="space-y-4 p-4 sm:p-6">
+      <h2 className="text-xl sm:text-2xl font-bold">Project Members</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
+        {sortedMembers.map((member) => {
           const profile = profiles[member.userId];
           return (
             <Card key={member.id}>
               <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center space-x-2">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0">
+                  <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full">
                     <a
                       href={`/publicprofile/${encodeURIComponent(
                         member.userId
                       )}`}
-                      className="flex items-center space-x-2 hover:text-primary transition-colors"
+                      className="flex items-center space-x-2 hover:text-primary transition-colors w-full"
                     >
                       <img
                         src={profile?.imageUrl || "/placeholder.png"}
@@ -68,20 +91,38 @@ const ProjectMembers = ({ members }) => {
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger>
-                            <Crown className="h-4 w-4 text-yellow-500" />
+                            <Crown className="h-4 w-4 text-yellow-500 sm:ml-2" />
                           </TooltipTrigger>
                           <TooltipContent>Project Owner</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                     )}
                   </CardTitle>
-                  <Badge
-                    variant={
-                      member.status === "accepted" ? "success" : "secondary"
-                    }
-                  >
-                    {member.status}
-                  </Badge>
+                  <div className="flex flex-wrap items-center space-x-1 sm:space-x-2 justify-start sm:justify-end w-full sm:w-auto">
+                    {member.role === "owner" && (
+                      <Badge variant="secondary" className="mb-1 sm:mb-0">
+                        Owner
+                      </Badge>
+                    )}
+                    {profile?.type && (
+                      <Badge
+                        variant={
+                          profile.type === "mentor" ? "default" : "outline"
+                        }
+                        className="mb-1 sm:mb-0"
+                      >
+                        {profile.type === "mentor" ? "Mentor" : "Student"}
+                      </Badge>
+                    )}
+                    <Badge
+                      variant={
+                        member.status === "accepted" ? "success" : "secondary"
+                      }
+                      className="mb-1 sm:mb-0"
+                    >
+                      {member.status}
+                    </Badge>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>

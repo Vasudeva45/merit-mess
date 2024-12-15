@@ -402,6 +402,7 @@ export async function scheduleMeeting(
     title: string;
     scheduledFor: Date;
     description?: string;
+    meetLink?: string;
   }
 ) {
   const session = await getSession();
@@ -411,30 +412,16 @@ export async function scheduleMeeting(
     throw new Error("Unauthorized");
   }
 
-  // Create a new task that represents the meeting
-  return await prisma.task.create({
+  return await prisma.meeting.create({
     data: {
-      title: meetingData.title,
-      description: meetingData.description || "Team meeting with mentor",
-      status: "todo",
-      priority: "high",
-      dueDate: meetingData.scheduledFor,
+      ...meetingData,
       groupId: groupId,
-      // Assign all group members to the meeting
-      assignedTo: {
-        connect: (
-          await prisma.groupMember.findMany({
-            where: { groupId, status: "accepted" },
-            select: { userId: true },
-          })
-        ).map((member) => ({ userId: member.userId })),
-      },
+      createdBy: user.sub,
     },
     include: {
-      assignedTo: {
+      creatorProfile: {
         select: {
           name: true,
-          userId: true,
         },
       },
     },
@@ -466,16 +453,63 @@ export async function shareResource(
         type: resource.type,
         size: 0, // Metadata only
         groupId: groupId,
+        isResource: true, // Mark this as a resource
       },
     }),
     prisma.discussion.create({
       data: {
         title: `New Resource: ${resource.name}`,
-        content: resource.description,
+        content: JSON.stringify({
+          type: resource.type,
+          description: resource.description,
+          url: resource.url
+        }),
         groupId: groupId,
       },
     }),
   ]);
 
   return { file, discussion };
+}
+
+export async function getMeetings(groupId: number) {
+  const session = await getSession();
+  const user = session?.user;
+
+  if (!user?.sub) {
+    throw new Error("Unauthorized");
+  }
+
+  return await prisma.meeting.findMany({
+    where: {
+      groupId: groupId,
+    },
+    include: {
+      creatorProfile: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: {
+      scheduledFor: 'desc'
+    }
+  });
+}
+
+export async function updateMeetingStatus(
+  meetingId: number, 
+  status: string
+) {
+  const session = await getSession();
+  const user = session?.user;
+
+  if (!user?.sub) {
+    throw new Error("Unauthorized");
+  }
+
+  return await prisma.meeting.update({
+    where: { id: meetingId },
+    data: { status },
+  });
 }

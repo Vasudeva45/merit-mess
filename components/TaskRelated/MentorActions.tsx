@@ -14,18 +14,18 @@ import { scheduleMeeting, shareResource } from "@/actions/task";
 import { toast } from "sonner";
 
 export default function MentorActions({ groupId, onUpdate, tasks }) {
-  const [reviewLoading, setReviewLoading] = useState(false);
   const [meetingDialogOpen, setMeetingDialogOpen] = useState(false);
   const [resourceDialogOpen, setResourceDialogOpen] = useState(false);
   const [meetingDate, setMeetingDate] = useState(null);
   const [meetingTitle, setMeetingTitle] = useState("");
   const [meetingDesc, setMeetingDesc] = useState("");
-  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [meetingLink, setMeetingLink] = useState("");
+  const [resourceType, setResourceType] = useState("credentials");
   const [resource, setResource] = useState({
     name: "",
-    url: "",
-    type: "",
     description: "",
+    credentials: "",
+    url: "",
   });
 
   const handleScheduleMeeting = async () => {
@@ -43,6 +43,7 @@ export default function MentorActions({ groupId, onUpdate, tasks }) {
         title: meetingTitle,
         scheduledFor: meetingDate,
         description: meetingDesc,
+        meetLink: meetingLink,
       });
 
       toast({
@@ -62,7 +63,7 @@ export default function MentorActions({ groupId, onUpdate, tasks }) {
 
   const handleShareResource = async () => {
     try {
-      if (!resource.name || !resource.url) {
+      if (!resource.name) {
         toast({
           title: "Error",
           description: "Please fill in all required fields",
@@ -71,7 +72,17 @@ export default function MentorActions({ groupId, onUpdate, tasks }) {
         return;
       }
 
-      await shareResource(groupId, resource);
+      // Create a discussion to share the resource
+      await shareResource(groupId, {
+        name: resource.name,
+        url: resource.url || "",
+        type: resourceType,
+        description: JSON.stringify({
+          ...resource,
+          type: resourceType
+        })
+      });
+
       toast({
         title: "Success",
         description: "Resource shared successfully",
@@ -86,12 +97,6 @@ export default function MentorActions({ groupId, onUpdate, tasks }) {
       });
     }
   };
-
-  // Filter tasks that are in review or in-progress status
-  const reviewableTasks =
-    tasks?.filter(
-      (task) => task.status === "in-progress" || task.status === "todo"
-    ) || [];
 
   return (
     <div className="flex space-x-2 mb-4">
@@ -122,6 +127,11 @@ export default function MentorActions({ groupId, onUpdate, tasks }) {
               value={meetingDesc}
               onChange={(e) => setMeetingDesc(e.target.value)}
             />
+            <Input
+              placeholder="Meeting Link (optional)"
+              value={meetingLink}
+              onChange={(e) => setMeetingLink(e.target.value)}
+            />
             <Calendar
               mode="single"
               selected={meetingDate}
@@ -138,10 +148,19 @@ export default function MentorActions({ groupId, onUpdate, tasks }) {
           <DialogHeader>
             <DialogTitle>Share Resource</DialogTitle>
             <DialogDescription>
-              Share a helpful resource with your team
+              Share important resources with your team
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <select 
+              value={resourceType}
+              onChange={(e) => setResourceType(e.target.value)}
+              className="w-full p-2 border rounded"
+            >
+              <option value="credentials">Credentials</option>
+              <option value="guide">Guide</option>
+              <option value="link">External Link</option>
+            </select>
             <Input
               placeholder="Resource Name"
               value={resource.name}
@@ -149,20 +168,24 @@ export default function MentorActions({ groupId, onUpdate, tasks }) {
                 setResource({ ...resource, name: e.target.value })
               }
             />
-            <Input
-              placeholder="Resource URL"
-              value={resource.url}
-              onChange={(e) =>
-                setResource({ ...resource, url: e.target.value })
-              }
-            />
-            <Input
-              placeholder="Resource Type (e.g., article, video)"
-              value={resource.type}
-              onChange={(e) =>
-                setResource({ ...resource, type: e.target.value })
-              }
-            />
+            {resourceType === "credentials" && (
+              <Textarea
+                placeholder="Credentials (e.g., username, password)"
+                value={resource.credentials}
+                onChange={(e) =>
+                  setResource({ ...resource, credentials: e.target.value })
+                }
+              />
+            )}
+            {resourceType !== "credentials" && (
+              <Input
+                placeholder="Resource URL"
+                value={resource.url}
+                onChange={(e) =>
+                  setResource({ ...resource, url: e.target.value })
+                }
+              />
+            )}
             <Textarea
               placeholder="Resource Description"
               value={resource.description}

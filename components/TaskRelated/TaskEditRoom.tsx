@@ -155,7 +155,7 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
           </div>
 
           {/* Main Content */}
-          <div className="flex-1 overflow-hidden flex">
+          <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
             {/* Left Panel */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Description */}
@@ -256,7 +256,7 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
             </div>
 
             {/* Right Panel */}
-            <div className="w-80 border-l p-6 space-y-6">
+            <div className="w-full md:w-80 border-t md:border-t-0 md:border-l p-6 space-y-6">
               {/* Status */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Status</label>

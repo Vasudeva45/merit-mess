@@ -1,7 +1,10 @@
 "use client";
 
-import { getProjectDetails, updateProjectStatus } from "@/actions/task";
-import DiscussionBoard from "@/components/TaskRelated/DiscussionBoard";
+import {
+  getMeetings,
+  getProjectDetails,
+  updateProjectStatus,
+} from "@/actions/task";
 import ProjectFiles from "@/components/TaskRelated/ProjectFiles";
 import ProjectMembers from "@/components/TaskRelated/ProjectMembers";
 import TaskBoard from "@/components/TaskRelated/TaskBoard";
@@ -21,7 +24,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Loader2, Zap, Check, ChevronDown } from "lucide-react";
+import {
+  Loader2,
+  Zap,
+  ChevronDown,
+  CalendarClock,
+  BookOpen,
+  ClipboardList,
+  Users,
+  FileText,
+  Calendar,
+} from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
@@ -29,6 +42,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import MentorActions from "@/components/TaskRelated/MentorActions";
 import { toast } from "sonner";
+import MeetingsView from "@/components/TaskRelated/MeetingsView";
+import ResourcesView from "@/components/TaskRelated/ResourcesView";
 
 const MAX_DESCRIPTION_LENGTH = 50;
 const PROJECT_STATUSES = {
@@ -49,6 +64,9 @@ export default function ProjectRoom() {
   const [isStatusUpdating, setIsStatusUpdating] = useState(false);
   const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
 
+  const [meetings, setMeetings] = useState([]);
+  const [resources, setResources] = useState([]);
+
   const isMentor = user?.sub && projectData?.mentorId === user.sub;
   const isOwnerOrAdmin = projectData?.members.some(
     (m) => m.userId === user?.sub && (m.role === "owner" || m.role === "admin")
@@ -56,10 +74,23 @@ export default function ProjectRoom() {
 
   const fetchProjectData = useCallback(async () => {
     try {
-      setLoading(true);
-      const data = await getProjectDetails(groupId);
-      setProjectData(data);
-      setNewStatus(data.status || "active");
+      const [projectData, meetingsData] = await Promise.all([
+        getProjectDetails(groupId),
+        getMeetings(groupId),
+      ]);
+
+      // Extract resources from discussions (assuming they're stored there)
+      const extractedResources = projectData.discussions
+        .filter((discussion) => discussion.title.startsWith("New Resource:"))
+        .map((discussion) => ({
+          name: discussion.title.replace("New Resource: ", ""),
+          description: discussion.content,
+        }));
+
+      setProjectData(projectData);
+      setMeetings(meetingsData);
+      setResources(extractedResources);
+      setNewStatus(projectData.status || "active");
     } catch (err) {
       setError("Failed to load project details");
       toast({
@@ -154,30 +185,37 @@ export default function ProjectRoom() {
   }
 
   return (
-    <div className="mx-auto p-4 space-y-8">
+    <div className="container mx-auto px-4 py-4 space-y-4 max-w-full">
       {/* Description Dialog/Modal */}
       <Dialog
         open={isDescriptionModalOpen}
         onOpenChange={setIsDescriptionModalOpen}
       >
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-md sm:max-w-2xl w-full">
           <DialogHeader>
             <DialogTitle>Project Description</DialogTitle>
           </DialogHeader>
-          <p className="text-gray-700">{projectData?.form?.description}</p>
+          <p className="text-gray-700 text-sm sm:text-base">
+            {projectData?.form?.description}
+          </p>
         </DialogContent>
       </Dialog>
 
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-bold">{projectData?.form?.name}</h1>
+      {/* Description and Header Section - Mobile Optimized */}
+      <div className="flex flex-col space-y-4">
+        <div className="w-full">
+          <h1 className="text-xl sm:text-3xl font-bold break-words">
+            {projectData?.form?.name}
+          </h1>
           <div className="mt-2">
-            <p className="text-gray-500 inline">{getShortDescription()}</p>
+            <p className="text-gray-500 text-xs sm:text-base inline-block">
+              {getShortDescription()}
+            </p>
             {projectData?.form?.description?.length >
               MAX_DESCRIPTION_LENGTH && (
               <button
                 onClick={() => setIsDescriptionModalOpen(true)}
-                className="ml-2 text-blue-500 hover:text-blue-700 text-sm font-medium"
+                className="ml-2 text-blue-500 hover:text-blue-700 text-xs sm:text-sm font-medium"
               >
                 Show more
               </button>
@@ -185,8 +223,8 @@ export default function ProjectRoom() {
           </div>
         </div>
 
-        <div className="flex items-center space-x-4">
-          <div className="text-sm text-gray-500">
+        <div className="flex flex-col space-y-2">
+          <div className="text-xs sm:text-sm text-gray-500 w-full">
             Owner:{" "}
             <span className="font-semibold">
               {
@@ -196,7 +234,7 @@ export default function ProjectRoom() {
             </span>
           </div>
 
-          <div className="text-sm text-gray-500 flex items-center">
+          <div className="text-xs sm:text-sm text-gray-500 flex items-center">
             Status:{" "}
             {isOwnerOrAdmin ? (
               <DropdownMenu>
@@ -204,18 +242,18 @@ export default function ProjectRoom() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="ml-2 flex items-center"
+                    className="ml-2 flex items-center text-xs"
                   >
                     <Badge
                       variant={PROJECT_STATUSES[newStatus].variant}
-                      className="mr-2"
+                      className="mr-2 text-[0.6rem] sm:text-xs"
                     >
                       {PROJECT_STATUSES[newStatus].label}
                     </Badge>
                     {isStatusUpdating ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
                     ) : (
-                      <ChevronDown className="h-4 w-4" />
+                      <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
                     )}
                   </Button>
                 </DropdownMenuTrigger>
@@ -229,7 +267,7 @@ export default function ProjectRoom() {
                       >
                         <Badge
                           variant={PROJECT_STATUSES[status].variant}
-                          className="mr-2"
+                          className="mr-2 text-xs"
                         >
                           {PROJECT_STATUSES[status].label}
                         </Badge>
@@ -240,7 +278,7 @@ export default function ProjectRoom() {
             ) : (
               <Badge
                 variant={PROJECT_STATUSES[newStatus].variant}
-                className="ml-2"
+                className="ml-2 text-[0.6rem] sm:text-xs"
               >
                 {PROJECT_STATUSES[newStatus].label}
               </Badge>
@@ -249,65 +287,133 @@ export default function ProjectRoom() {
         </div>
       </div>
 
+      {/* Mentor Card and Actions - Fully Responsive */}
       {projectData?.mentor && (
-        <MentorCard
-          mentor={projectData.mentor}
-          isMentor={isMentor}
-          projectHasMentor={Boolean(projectData.mentorId)}
-        />
+        <div className="w-full">
+          <MentorCard
+            mentor={projectData.mentor}
+            isMentor={isMentor}
+            projectHasMentor={Boolean(projectData.mentorId)}
+          />
+        </div>
       )}
       {renderMentorActions()}
 
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="space-y-4"
-      >
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
-          <TabsTrigger value="discussions">Discussions</TabsTrigger>
-          <TabsTrigger value="members">Members</TabsTrigger>
-          <TabsTrigger value="files">Files</TabsTrigger>
-          <TabsTrigger value="calendar">Calendar</TabsTrigger>
-        </TabsList>
+      {/* Tabs and Navigation - Enhanced Mobile Layout */}
+      <div className="flex flex-col space-y-4">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="w-full space-y-4"
+        >
+          {/* Horizontal Scrollable Tabs */}
+          <TabsList className="w-full overflow-x-auto p-1">
+            <div className="flex space-x-2">
+              <TabsTrigger
+                value="tasks"
+                className="flex-1 text-xs sm:text-base py-1 px-2"
+              >
+                <ClipboardList className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
+                Tasks
+              </TabsTrigger>
+              <TabsTrigger
+                value="members"
+                className="flex-1 text-xs sm:text-base py-1 px-2"
+              >
+                <Users className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
+                Members
+              </TabsTrigger>
+              <TabsTrigger
+                value="files"
+                className="flex-1 text-xs sm:text-base py-1 px-2"
+              >
+                <FileText className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
+                Files
+              </TabsTrigger>
+              <TabsTrigger
+                value="calendar"
+                className="flex-1 text-xs sm:text-base py-1 px-2"
+              >
+                <Calendar className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
+                Calendar
+              </TabsTrigger>
+            </div>
+          </TabsList>
 
-        <TabsContent value="tasks" className="space-y-4">
-          <TaskBoard
-            tasks={projectData?.tasks || []}
-            members={projectData?.members || []}
+          {/* Tab Contents */}
+          <TabsContent value="tasks" className="space-y-4">
+            <TaskBoard
+              tasks={projectData?.tasks || []}
+              members={projectData?.members || []}
+              groupId={groupId}
+              onUpdate={fetchProjectData}
+            />
+          </TabsContent>
+
+          <TabsContent value="members" className="space-y-4">
+            <ProjectMembers
+              members={projectData?.members || []}
+              groupId={groupId}
+              onUpdate={fetchProjectData}
+            />
+          </TabsContent>
+
+          <TabsContent value="files" className="space-y-4">
+            <ProjectFiles
+              files={
+                projectData?.files?.filter((file) => !file.isResource) || []
+              }
+              groupId={groupId}
+              onUpdate={fetchProjectData}
+            />
+          </TabsContent>
+
+          <TabsContent value="calendar" className="space-y-4">
+            <CalendarView tasks={projectData?.tasks || []} />
+          </TabsContent>
+        </Tabs>
+
+        {/* Side Buttons - Fully Responsive */}
+        <div className="flex justify-center space-x-4 w-full">
+          <Button
+            variant={activeTab === "meetings" ? "default" : "outline"}
+            size="icon"
+            onClick={() => setActiveTab("meetings")}
+            className="hover:bg-blue-100 w-12 h-12"
+          >
+            <CalendarClock className="h-5 w-5" />
+          </Button>
+          <Button
+            variant={activeTab === "resources" ? "default" : "outline"}
+            size="icon"
+            onClick={() => setActiveTab("resources")}
+            className="hover:bg-green-100 w-12 h-12"
+          >
+            <BookOpen className="h-5 w-5" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Meetings and Resources Sections */}
+      {activeTab === "meetings" && (
+        <div className="mt-4">
+          <MeetingsView
+            meetings={meetings}
             groupId={groupId}
             onUpdate={fetchProjectData}
           />
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="discussions" className="space-y-4">
-          <DiscussionBoard
-            discussions={projectData?.discussions || []}
+      {activeTab === "resources" && (
+        <div className="mt-4">
+          <ResourcesView
+            resources={resources}
             groupId={groupId}
             onUpdate={fetchProjectData}
           />
-        </TabsContent>
-
-        <TabsContent value="members" className="space-y-4">
-          <ProjectMembers
-            members={projectData?.members || []}
-            groupId={groupId}
-            onUpdate={fetchProjectData}
-          />
-        </TabsContent>
-
-        <TabsContent value="files" className="space-y-4">
-          <ProjectFiles
-            files={projectData?.files || []}
-            groupId={groupId}
-            onUpdate={fetchProjectData}
-          />
-        </TabsContent>
-
-        <TabsContent value="calendar" className="space-y-4">
-          <CalendarView tasks={projectData?.tasks || []} />
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
     </div>
   );
 }

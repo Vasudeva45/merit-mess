@@ -18,8 +18,8 @@ export default function MentorCard({
         </h2>
       </CardHeader>
       <CardContent>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
+          <div className="flex items-center gap-4 w-full sm:w-auto">
             {mentor.imageUrl ? (
               <img
                 src={mentor.imageUrl}
@@ -31,7 +31,7 @@ export default function MentorCard({
                 <GraduationCap className="h-6 w-6" />
               </div>
             )}
-            <div>
+            <div className="flex-grow">
               <h3 className="font-medium">{mentor.name}</h3>
               {mentor.title && (
                 <p className="text-sm text-muted-foreground">{mentor.title}</p>
@@ -39,14 +39,22 @@ export default function MentorCard({
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <Link
               href={`/mentor/${mentor.userId}?isProjectMentor=true`}
               target="_blank"
+              className="w-full sm:w-auto"
             >
-              <Button variant="outline">View Profile</Button>
+              <Button variant="outline" className="w-full sm:w-auto">
+                View Profile
+              </Button>
             </Link>
-            <Button variant="default" disabled={projectHasMentor} asChild>
+            <Button
+              variant="default"
+              disabled={projectHasMentor}
+              asChild
+              className="w-full sm:w-auto"
+            >
               <Link
                 href={`/mentor/${mentor.userId}?isProjectMentor=true`}
                 target="_blank"

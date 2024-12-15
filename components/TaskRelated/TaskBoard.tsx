@@ -115,12 +115,12 @@ const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
   }, {});
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Tasks</h2>
+    <div className="space-y-4 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
+        <h2 className="text-xl sm:text-2xl font-bold w-full">Tasks</h2>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
-            <Button disabled={isLoading}>
+            <Button disabled={isLoading} className="w-full sm:w-auto">
               {isLoading ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
@@ -213,7 +213,7 @@ const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         {Object.entries(TASK_STATUS).map(([status, { label, icon: Icon }]) => (
           <Card key={status}>
             <CardHeader className="pb-2">
@@ -251,14 +251,14 @@ const TaskCard = ({ task, onStatusChange, members, isLoading }) => {
         onClick={() => setIsEditOpen(true)}
       >
         <div className="space-y-2">
-          <div className="flex justify-between items-start">
-            <h3 className="font-medium">{task.title}</h3>
+          <div className="flex flex-col sm:flex-row justify-between items-start space-y-2 sm:space-y-0">
+            <h3 className="font-medium w-full sm:w-auto">{task.title}</h3>
             <Select
               value={task.status}
               onValueChange={(value) => onStatusChange(task.id, value)}
               disabled={isLoading}
             >
-              <SelectTrigger className="h-6 w-24">
+              <SelectTrigger className="h-6 w-full sm:w-24">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -274,13 +274,15 @@ const TaskCard = ({ task, onStatusChange, members, isLoading }) => {
             <p className="text-sm text-gray-500">{task.description}</p>
           )}
           {task.assignedTo?.length > 0 && (
-            <div className="flex items-center space-x-2 text-xs text-gray-500">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 text-xs text-gray-500">
               <span>Assigned to:</span>
-              {task.assignedTo.map((user) => (
-                <span key={user.userId} className="font-medium">
-                  {user.name}
-                </span>
-              ))}
+              <div className="flex flex-wrap gap-1">
+                {task.assignedTo.map((user) => (
+                  <span key={user.userId} className="font-medium">
+                    {user.name}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
         </div>

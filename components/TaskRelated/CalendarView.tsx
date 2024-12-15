@@ -136,37 +136,41 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const CustomToolbar = useCallback(
     ({ label, onNavigate, onView }) => {
       return (
-        <div className="flex justify-between items-center p-4 border-b">
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => onNavigate(Navigate.PREVIOUS)}
-              className="hover:bg-neutral-100 dark:hover:bg-neutral-700 p-2 rounded-md transition-colors"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button
-              onClick={() => onNavigate(Navigate.NEXT)}
-              className="hover:bg-neutral-100 dark:hover:bg-neutral-700 p-2 rounded-md transition-colors"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
-            <button
-              onClick={() => onNavigate(Navigate.TODAY)}
-              className="flex items-center gap-2 px-3 py-2 bg-neutral-100 dark:bg-neutral-800 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors text-sm"
-            >
-              <CalendarIcon className="h-4 w-4" />
-              Today
-            </button>
+        <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-b space-y-2 sm:space-y-0">
+          <div className="flex items-center space-x-2 w-full sm:w-auto justify-between sm:justify-start">
+            <div className="flex items-center">
+              <button
+                onClick={() => onNavigate(Navigate.PREVIOUS)}
+                className="hover:bg-neutral-100 dark:hover:bg-neutral-700 p-2 rounded-md transition-colors"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => onNavigate(Navigate.NEXT)}
+                className="hover:bg-neutral-100 dark:hover:bg-neutral-700 p-2 rounded-md transition-colors"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => onNavigate(Navigate.TODAY)}
+                className="flex items-center gap-2 px-3 py-2 bg-neutral-100 dark:bg-neutral-800 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors text-sm"
+              >
+                <CalendarIcon className="h-4 w-4" />
+                Today
+              </button>
+            </div>
           </div>
 
-          <div className="text-xl font-semibold">{label}</div>
+          <div className="text-xl font-semibold text-center sm:text-left w-full sm:w-auto">
+            {label}
+          </div>
 
-          <div className="flex space-x-2">
+          <div className="flex space-x-2 w-full sm:w-auto justify-center sm:justify-end overflow-x-auto">
             {Object.values(Views).map((viewOption) => (
               <button
                 key={viewOption}
                 onClick={() => onView(viewOption)}
-                className={`px-3 py-2 rounded-md text-sm transition-colors 
+                className={`px-2 sm:px-3 py-1 sm:py-2 rounded-md text-xs sm:text-sm transition-colors whitespace-nowrap
                 ${
                   view === viewOption
                     ? "bg-neutral-800 dark:bg-neutral-200 text-white dark:text-neutral-900"
@@ -198,10 +202,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
     return (
       <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{selectedTask.title}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-base sm:text-lg">
+              {selectedTask.title}
+            </DialogTitle>
+            <DialogDescription className="text-sm">
               Due Date: {moment(selectedTask.dueDate).format("MMMM Do, YYYY")}
             </DialogDescription>
           </DialogHeader>
@@ -209,7 +215,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           <div className="space-y-4">
             {/* Task Status */}
             <div className="flex items-center">
-              <span className="flex items-center bg-neutral-100 dark:bg-neutral-800 px-2 py-1 rounded-md">
+              <span className="flex items-center bg-neutral-100 dark:bg-neutral-800 px-2 py-1 rounded-md text-xs sm:text-sm">
                 {statusConfig.icon}
                 {statusConfig.label}
               </span>
@@ -218,8 +224,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             {/* Description */}
             {selectedTask.description && (
               <div>
-                <h4 className="font-semibold text-sm mb-2">Description</h4>
-                <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                <h4 className="font-semibold text-xs sm:text-sm mb-2">
+                  Description
+                </h4>
+                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-300">
                   {selectedTask.description}
                 </p>
               </div>
@@ -227,10 +235,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
             {/* Assignees */}
             <div>
-              <h4 className="font-semibold text-sm mb-2">Assigned To</h4>
-              <div className="flex gap-2">
+              <h4 className="font-semibold text-xs sm:text-sm mb-2">
+                Assigned To
+              </h4>
+              <div className="flex gap-2 flex-wrap">
                 {selectedTask.assignedTo.map((assignee) => (
-                  <Badge key={assignee.userId} variant="secondary">
+                  <Badge
+                    key={assignee.userId}
+                    variant="secondary"
+                    className="text-xs"
+                  >
                     {assignee.name}
                   </Badge>
                 ))}
@@ -238,21 +252,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             </div>
 
             {/* Actions */}
-            <div className="flex justify-between space-x-2 mt-4">
+            <div className="flex flex-col sm:flex-row justify-between space-y-2 sm:space-y-0 sm:space-x-2 mt-4">
               {onTaskEdit && (
                 <button
                   onClick={() => {
                     onTaskEdit(selectedTask.id);
                     setSelectedTask(null);
                   }}
-                  className="flex items-center bg-neutral-800 dark:bg-neutral-200 text-white dark:text-neutral-900 px-3 py-2 rounded-md hover:bg-neutral-700 dark:hover:bg-neutral-300 transition-colors"
+                  className="flex items-center justify-center bg-neutral-800 dark:bg-neutral-200 text-white dark:text-neutral-900 px-3 py-2 rounded-md hover:bg-neutral-700 dark:hover:bg-neutral-300 transition-colors text-xs sm:text-sm w-full sm:w-auto"
                 >
                   <Edit className="mr-2 h-4 w-4" /> Edit Task
                 </button>
               )}
 
               {onTaskStatusUpdate && (
-                <div className="flex space-x-2">
+                <div className="flex flex-wrap gap-2 w-full">
                   {Object.keys(STATUS_CONFIGS)
                     .filter((status) => status !== selectedTask.status)
                     .map((status) => {
@@ -265,7 +279,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             onTaskStatusUpdate(selectedTask.id, status);
                             setSelectedTask(null);
                           }}
-                          className="flex items-center bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 px-3 py-2 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+                          className="flex items-center justify-center flex-1 bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 px-2 sm:px-3 py-2 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors text-xs sm:text-sm"
                         >
                           {config.icon}
                           {config.label}
@@ -284,7 +298,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   // If no tasks or no user, show a message
   if (!user || events.length === 0) {
     return (
-      <div className="text-center text-neutral-500 py-10">
+      <div className="text-center text-neutral-500 py-10 text-sm sm:text-base">
         {!user
           ? "Please log in to view your tasks"
           : "No tasks assigned to you"}
@@ -293,7 +307,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   }
 
   return (
-    <div className="h-[600px] relative bg-white dark:bg-neutral-900 shadow-sm rounded-lg overflow-hidden">
+    <div className="h-[600px] sm:h-[600px] relative bg-white dark:bg-neutral-900 shadow-sm rounded-lg overflow-hidden">
       <Calendar
         localizer={localizer}
         events={events}
@@ -322,6 +336,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             STATUS_CONFIGS[event.status as keyof typeof STATUS_CONFIGS]?.label
           }`
         }
+        // Add mobile-specific props
+        popup
+        selectable
+        longPressThreshold={50}
       />
       {renderTaskDetailsDialog()}
     </div>

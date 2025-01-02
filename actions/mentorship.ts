@@ -28,73 +28,74 @@ export async function createMentorshipRequest(input: {
   try {
     const decodedMentorId = decodeURIComponent(input.mentorId);
 
-    // Verify mentor profile exists
+    // 1. Check if project already has a mentor
+    const existingMentor = await checkProjectMentor(input.projectGroupId);
+    if (existingMentor?.mentorId) {
+      throw new Error(
+        `This project already has a mentor (${existingMentor.mentor.name})`
+      );
+    }
+
+    // 2. Verify if the user is the project owner
+    const isOwner = await isProjectOwner(user.sub, input.projectGroupId);
+    if (!isOwner) {
+      throw new Error("Only project owners can send mentorship requests");
+    }
+
+    // 3. Check if project already has a pending mentor request
+    const existingRequest = await checkExistingMentorshipRequest(
+      input.projectGroupId
+    );
+    if (existingRequest) {
+      throw new Error("This project already has a pending mentorship request");
+    }
+
+    // 4. Verify mentor profile exists and is available
     const mentorProfile = await prisma.profile.findUnique({
       where: {
         userId: decodedMentorId,
+        type: "mentor",
+        availableForMentorship: true,
       },
     });
 
     if (!mentorProfile) {
       throw new Error(
-        `Mentor profile not found for user ID: ${decodedMentorId}`
+        "Mentor profile not found or is not available for mentorship"
       );
     }
 
-    // Check group membership
-    const groupMembership = await prisma.groupMember.findFirst({
-      where: {
-        groupId: input.projectGroupId,
-        userId: user.sub,
-        status: "accepted",
-      },
-    });
-
-    if (!groupMembership) {
-      throw new Error(
-        "You must be a member of this project group to request mentorship"
-      );
-    }
-
-    // Check for existing request
-    const existingRequest = await prisma.mentorshipRequest.findFirst({
-      where: {
-        mentorId: decodedMentorId,
-        projectGroupId: input.projectGroupId,
-        requesterId: user.sub,
-        status: {
-          in: ["pending", "accepted", "mentor_invited"],
-        },
-      },
-    });
-
-    if (existingRequest) {
-      throw new Error("A mentorship request for this project already exists");
-    }
-
-    // Create mentorship request with mentor_invited status
+    // Create mentorship request
     const mentorshipRequest = await prisma.mentorshipRequest.create({
       data: {
         mentorId: decodedMentorId,
         projectGroupId: input.projectGroupId,
         requesterId: user.sub,
         message: input.message,
-        status: "mentor_invited", // Changed to mentor_invited
+        status: "mentor_invited",
       },
       include: {
         projectGroup: {
           select: {
             name: true,
+            form: {
+              select: {
+                name: true,
+                description: true,
+              },
+            },
           },
         },
         requester: {
           select: {
             name: true,
+            imageUrl: true,
           },
         },
         mentor: {
           select: {
             name: true,
+            imageUrl: true,
           },
         },
       },
@@ -106,9 +107,72 @@ export async function createMentorshipRequest(input: {
 
     return mentorshipRequest;
   } catch (error) {
-    console.error("Full Mentorship Request Error:", error);
+    console.error("Mentorship Request Error:", error);
     throw error;
   }
+}
+
+export async function canRequestMentorship(projectGroupId: number) {
+  const session = await getSession();
+  const user = session?.user;
+
+  if (!user?.sub) {
+    throw new Error("Unauthorized");
+  }
+
+  try {
+    // Check if project has a mentor
+    const existingMentor = await checkProjectMentor(projectGroupId);
+    if (existingMentor?.mentorId) {
+      return {
+        canRequest: false,
+        message: `This project already has a mentor (${existingMentor.mentor.name})`,
+        existingMentor: existingMentor,
+      };
+    }
+
+    // Check if user is project owner
+    const isOwner = await isProjectOwner(user.sub, projectGroupId);
+
+    // Check for existing requests
+    const existingRequest = await checkExistingMentorshipRequest(
+      projectGroupId
+    );
+
+    return {
+      canRequest: isOwner && !existingRequest && !existingMentor,
+      message: !isOwner
+        ? "Only project owners can request mentorship"
+        : existingRequest
+        ? "This project already has a pending mentorship request"
+        : existingMentor
+        ? `This project already has a mentor (${existingMentor.mentor.name})`
+        : "Can request mentorship",
+      existingRequest: existingRequest || null,
+      existingMentor: existingMentor || null,
+    };
+  } catch (error) {
+    console.error("Error checking mentorship request eligibility:", error);
+    throw error;
+  }
+}
+
+async function checkProjectMentor(projectGroupId: number) {
+  const project = await prisma.projectGroup.findUnique({
+    where: {
+      id: projectGroupId,
+    },
+    select: {
+      mentorId: true,
+      mentor: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  });
+
+  return project?.mentorId ? project : null;
 }
 
 export async function getMyProjectGroups() {
@@ -149,18 +213,26 @@ export async function getMentorshipRequests() {
     throw new Error("Unauthorized");
   }
 
+  // Only fetch requests where the current user is the mentor
   return await prisma.mentorshipRequest.findMany({
     where: {
-      OR: [
-        { mentorId: user.sub, status: "mentor_invited" },
-        { mentorId: user.sub, status: "pending" },
-        { requesterId: user.sub },
+      AND: [
+        { mentorId: user.sub }, // Only get requests for this specific mentor
+        {
+          OR: [{ status: "mentor_invited" }, { status: "pending" }],
+        },
       ],
     },
     include: {
       projectGroup: {
         select: {
           name: true,
+          form: {
+            select: {
+              name: true,
+              description: true,
+            },
+          },
         },
       },
       requester: {
@@ -180,6 +252,34 @@ export async function getMentorshipRequests() {
       createdAt: "desc",
     },
   });
+}
+
+async function checkExistingMentorshipRequest(projectGroupId: number) {
+  const existingRequest = await prisma.mentorshipRequest.findFirst({
+    where: {
+      projectGroupId: projectGroupId,
+      status: {
+        in: ["pending", "mentor_invited", "accepted"],
+      },
+    },
+  });
+  return existingRequest;
+}
+
+async function isProjectOwner(userId: string, projectGroupId: number) {
+  const projectGroup = await prisma.projectGroup.findFirst({
+    where: {
+      id: projectGroupId,
+      members: {
+        some: {
+          userId: userId,
+          role: "owner",
+          status: "accepted",
+        },
+      },
+    },
+  });
+  return !!projectGroup;
 }
 
 export async function updateMentorshipRequestStatus(

@@ -44,23 +44,21 @@ const ProjectDashboard = () => {
       try {
         setLoading(true);
         const profile = await getCurrentUserProfile();
-        const [invites, mentorInvites, projectGroups] = await Promise.all([
+        const [invites, projectGroups] = await Promise.all([
           getProjectInvites(),
-          profile.type === "mentor"
-            ? getMentorshipRequests()
-            : Promise.resolve([]),
           getMyProjectGroups(),
         ]);
+
+        // Only fetch mentor invites if the user is a mentor
+        let mentorInvites = [];
+        if (profile.type === "mentor") {
+          mentorInvites = await getMentorshipRequests();
+        }
 
         setUserData({
           profile,
           invites: invites.filter((invite) => invite.status !== "accepted"),
-          mentorInvites:
-            profile.type === "mentor"
-              ? mentorInvites.filter(
-                  (invite) => invite.status === "mentor_invited"
-                )
-              : [],
+          mentorInvites: profile.type === "mentor" ? mentorInvites : [],
           projectGroups,
         });
       } catch (error) {
@@ -308,33 +306,46 @@ const ProjectDashboard = () => {
             ? userData.mentorInvites.map((invite) => (
                 <div
                   key={invite.id}
-                  className="bg-card border rounded-xl p-6 flex justify-between items-center"
+                  className="bg-card border rounded-xl p-6 flex flex-col space-y-4"
                 >
-                  <div>
-                    <h3 className="text-lg font-semibold">
-                      {invite.projectGroup.name}
-                    </h3>
-                    <p className="text-muted-foreground">
-                      Mentor Request from {invite.requester.name}
-                    </p>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-lg font-semibold">
+                        {invite.projectGroup.form.name}
+                      </h3>
+                      <p className="text-muted-foreground text-sm mt-1">
+                        {invite.projectGroup.form.description}
+                      </p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() =>
+                          handleInviteResponse(invite, "rejected", "mentor")
+                        }
+                        className="bg-destructive/10 text-destructive p-2 rounded-full hover:bg-destructive/20 transition-colors"
+                        disabled={processingItems[invite.id]}
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() =>
+                          handleInviteResponse(invite, "accepted", "mentor")
+                        }
+                        className="bg-primary/10 text-primary p-2 rounded-full hover:bg-primary/20 transition-colors"
+                        disabled={processingItems[invite.id]}
+                      >
+                        <Check className="h-5 w-5" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() =>
-                        handleInviteResponse(invite, "rejected", "mentor")
-                      }
-                      className="bg-destructive/10 text-destructive p-2 rounded-full hover:bg-destructive/20"
-                    >
-                      <X className="h-5 w-5" />
-                    </button>
-                    <button
-                      onClick={() =>
-                        handleInviteResponse(invite, "accepted", "mentor")
-                      }
-                      className="bg-primary/10 text-primary p-2 rounded-full hover:bg-primary/20"
-                    >
-                      <Check className="h-5 w-5" />
-                    </button>
+                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                    <Users className="h-4 w-4" />
+                    <span>Request from {invite.requester.name}</span>
+                    {invite.message && (
+                      <span className="border-l border-border pl-2 ml-2">
+                        {invite.message}
+                      </span>
+                    )}
                   </div>
                 </div>
               ))

@@ -1,48 +1,78 @@
-import React, { useTransition } from "react";
-import { HiSaveAs } from "react-icons/hi";
-import { Button } from "../ui/button";
+import React, { useTransition, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Save, Loader2 } from "lucide-react";
 import useDesigner from "./hooks/useDesigner";
 import { UpdateFormContent } from "@/actions/form";
-import { FaSpinner } from "react-icons/fa";
-import { toast } from "sonner";
-import { CheckIcon } from "lucide-react";
-import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
+import CustomToast from "@/components/Toast/custom-toast";
 
-function SaveFormBtn({ id }: Readonly<{ id: number }>) {
+const SaveFormBtn = ({ id }: { id: number }) => {
   const { elements } = useDesigner();
   const [loading, startTransition] = useTransition();
+  const [toast, setToast] = useState<{
+    type: "success" | "error";
+    message: { title: string; details: string };
+  } | null>(null);
 
   const updateFormContent = async () => {
     try {
       const jsonElements = JSON.stringify(elements);
       await UpdateFormContent(id, jsonElements);
-      toast.success("Form saved successfully", {
-        description: "Thank you!",
-        icon: <CheckIcon />,
+      setToast({
+        type: "success",
+        message: {
+          title: "Form Saved Successfully",
+          details: `Operation ID: ${id} • ${elements.length} elements processed`,
+        },
       });
     } catch (error) {
-      toast.error("Something went wrong", {
-        description: "comeback later!",
-        icon: <ExclamationTriangleIcon />,
+      setToast({
+        type: "error",
+        message: {
+          title: "Operation Failed",
+          details: `Error Code: ${error?.code || "UNKNOWN"} • ${
+            error?.message || "An unexpected error occurred"
+          }`,
+        },
       });
     }
   };
+
   return (
-    <div>
+    <>
       <Button
-        variant={"outline"}
-        className="gap-2"
+        variant="outline"
+        className="gap-2 h-9 px-4 font-mono"
         disabled={loading}
-        onClick={() => {
-          startTransition(updateFormContent);
-        }}
+        onClick={() => startTransition(updateFormContent)}
       >
-        <HiSaveAs className="h-4 w-4" />
-        Save
-        {loading && <FaSpinner className="animate-spin" />}
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Save className="h-4 w-4" />
+        )}
+        {loading ? "Saving..." : "Save Form"}
       </Button>
-    </div>
+
+      {toast && (
+        <CustomToast
+          type={toast.type}
+          message={toast.message}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+      <style jsx global>{`
+        @keyframes shrink {
+          from {
+            width: 100%;
+          }
+          to {
+            width: 0%;
+          }
+        }
+      `}</style>
+    </>
   );
-}
+};
 
 export default SaveFormBtn;

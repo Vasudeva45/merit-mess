@@ -36,7 +36,7 @@ import {
   checkIfUserHasRatedMentor,
   rateMentor,
 } from "@/actions/mentorship";
-import { toast } from "sonner";
+import CustomToast, { ToastMessage } from "@/components/Toast/custom-toast";
 
 export default function MentorProfilePage({
   params,
@@ -54,16 +54,33 @@ export default function MentorProfilePage({
   const [mentorshipMessage, setMentorshipMessage] = useState("");
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
 
-  // New state for rating
+  // Toast state
+  const [toastMessage, setToastMessage] = useState<ToastMessage | null>(null);
+  const [toastType, setToastType] = useState<"success" | "error">("success");
+  const [showToast, setShowToast] = useState(false);
+
+  // Rating states
   const [isRatingDialogOpen, setIsRatingDialogOpen] = useState(false);
   const [userRating, setUserRating] = useState(0);
   const [canRate, setCanRate] = useState(false);
   const [hasRated, setHasRated] = useState(false);
-
   const [isRatingSubmitting, setIsRatingSubmitting] = useState(false);
   const [isRequestSubmitting, setIsRequestSubmitting] = useState(false);
   const [isExistingRequestModalOpen, setIsExistingRequestModalOpen] =
     useState(false);
+  const [ratingError, setRatingError] = useState<string | null>(null);
+
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+
+  const showCustomToast = (
+    title: string,
+    details: string,
+    type: "success" | "error"
+  ) => {
+    setToastMessage({ title, details });
+    setToastType(type);
+    setShowToast(true);
+  };
 
   React.useEffect(() => {
     const fetchMentorProfile = async () => {
@@ -76,7 +93,6 @@ export default function MentorProfilePage({
         setMentor(data);
         setLoading(false);
 
-        // Check if user can rate this mentor
         try {
           const ratingCheck = await checkIfUserHasRatedMentor(params.userId);
           setCanRate(ratingCheck.canRate);
@@ -86,10 +102,20 @@ export default function MentorProfilePage({
           }
         } catch (ratingError) {
           console.error("Rating check error:", ratingError);
+          showCustomToast(
+            "Rating Check Error",
+            "Failed to check rating status",
+            "error"
+          );
         }
       } catch (err) {
         setError(err.message);
         setLoading(false);
+        showCustomToast(
+          "Profile Error",
+          "Failed to load mentor profile",
+          "error"
+        );
       }
     };
 
@@ -102,23 +128,21 @@ export default function MentorProfilePage({
 
   const handleRating = async () => {
     if (userRating === 0) {
-      toast({
-        title: "Error",
-        description: "Please select a rating",
-        variant: "destructive",
-      });
+      showCustomToast(
+        "Rating Error",
+        "Please select a rating before submitting",
+        "error"
+      );
       return;
     }
 
     try {
-      setIsRatingSubmitting(true); // Start loading state
-
+      setIsRatingSubmitting(true);
       const result = await rateMentor({
         mentorId: params.userId,
         rating: userRating,
       });
 
-      // Update mentor's rating in the local state
       setMentor((prev) => ({
         ...prev,
         mentorRating: result.averageRating,
@@ -126,29 +150,21 @@ export default function MentorProfilePage({
 
       setIsRatingDialogOpen(false);
       setHasRated(true);
-
-      toast({
-        title: "Success",
-        description: "Mentor rated successfully",
-        variant: "default",
-      });
+      showCustomToast(
+        "Rating Submitted",
+        "Thank you for rating your mentor!",
+        "success"
+      );
     } catch (err) {
-      // If it's a self-rating error, show an error state in the dialog
       if (err.message.includes("You cannot rate yourself")) {
         setRatingError("You cannot rate your own profile");
       } else {
-        toast({
-          title: "Error",
-          description: err.message,
-          variant: "destructive",
-        });
+        showCustomToast("Rating Error", err.message, "error");
       }
     } finally {
-      setIsRatingSubmitting(false); // End loading state
+      setIsRatingSubmitting(false);
     }
   };
-
-  const [ratingError, setRatingError] = useState<string | null>(null);
 
   const renderStarRating = () => {
     return [1, 2, 3, 4, 5].map((star) => (
@@ -188,67 +204,70 @@ export default function MentorProfilePage({
     );
 
   const openMentorshipRequestDialog = async () => {
+    // Open dialog immediately first
+    setIsRequestDialogOpen(true);
+    setIsLoadingProjects(true);
+
     try {
       const groups = await getMyProjectGroups();
       setProjectGroups(groups);
-      setIsRequestDialogOpen(true);
     } catch (err) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch project groups",
-        variant: "destructive",
-      });
+      showCustomToast(
+        "Project Groups Error",
+        "Failed to fetch project groups",
+        "error"
+      );
+      setIsRequestDialogOpen(false); // Close dialog on error
+    } finally {
+      setIsLoadingProjects(false);
     }
   };
 
   const handleOrderMentorship = async () => {
     if (!selectedProjectGroup) {
-      toast({
-        title: "Error",
-        description: "Please select a project group",
-        variant: "destructive",
-      });
+      showCustomToast(
+        "Request Error",
+        "Please select a project group",
+        "error"
+      );
+      setIsRequestDialogOpen(false); // Close the dialog even on error
       return;
     }
 
     try {
-      setIsRequestSubmitting(true); // Start loading state
-
-      const request = await createMentorshipRequest({
+      setIsRequestSubmitting(true);
+      await createMentorshipRequest({
         mentorId: params.userId,
         projectGroupId: selectedProjectGroup,
         message: mentorshipMessage,
       });
 
-      toast({
-        title: "Success",
-        description: "Mentorship request sent successfully",
-        variant: "default",
-      });
-
+      // Close dialog first
       setIsRequestDialogOpen(false);
       setSelectedProjectGroup(null);
       setMentorshipMessage("");
+
+      // Then show toast
+      showCustomToast(
+        "Request Sent",
+        "Your mentorship request has been sent successfully",
+        "success"
+      );
     } catch (err) {
-      // Check if the error is due to an existing request
       if (
         err.message === "A mentorship request for this project already exists"
       ) {
         setIsRequestDialogOpen(false);
         setIsExistingRequestModalOpen(true);
       } else {
-        toast({
-          title: "Error",
-          description: err.message,
-          variant: "destructive",
-        });
+        setIsRequestDialogOpen(false); // Close the dialog on any error
+        showCustomToast("Request Error", err.message, "error");
       }
     } finally {
-      setIsRequestSubmitting(false); // End loading state
+      setIsRequestSubmitting(false);
     }
   };
 
-  // Rest of your existing render logic for loading and error states...
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -285,6 +304,14 @@ export default function MentorProfilePage({
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
+      {showToast && toastMessage && (
+        <CustomToast
+          message={toastMessage}
+          type={toastType}
+          onClose={() => setShowToast(false)}
+        />
+      )}
+
       <Card>
         <CardContent className="p-6">
           <div className="flex items-start gap-6">
@@ -419,6 +446,7 @@ export default function MentorProfilePage({
           </CardContent>
         </Card>
       )}
+
       {renderMentorshipCard()}
 
       {/* Mentorship Request Dialog */}
@@ -429,69 +457,67 @@ export default function MentorProfilePage({
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Select
-                onValueChange={(value) =>
-                  setSelectedProjectGroup(Number(value))
-                }
-              >
-                <SelectTrigger className="col-span-4">
-                  <SelectValue placeholder="Select a Project Group" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projectGroups.map((group) => (
-                    <SelectItem key={group.id} value={group.id.toString()}>
-                      {group.name}
-                      {group.form?.name && ` (${group.form.name})`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Textarea
-                className="col-span-4"
-                placeholder="Write a message to the mentor (optional)"
-                value={mentorshipMessage}
-                onChange={(e) => setMentorshipMessage(e.target.value)}
-              />
-            </div>
-
-            <Button
-              onClick={handleOrderMentorship}
-              disabled={!selectedProjectGroup || isRequestSubmitting}
-              className="w-full"
-            >
-              {isRequestSubmitting ? (
-                <div className="flex items-center justify-center">
-                  <Zap className="h-4 w-4 mr-2 animate-pulse" />
-                  Sending Request...
+            {isLoadingProjects ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900"></div>
+                  <span className="text-sm text-muted-foreground">
+                    Loading projects...
+                  </span>
                 </div>
-              ) : (
-                "Send Mentorship Request"
-              )}
-            </Button>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Select
+                    onValueChange={(value) =>
+                      setSelectedProjectGroup(Number(value))
+                    }
+                  >
+                    <SelectTrigger className="col-span-4">
+                      <SelectValue placeholder="Select a Project Group" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projectGroups.map((group) => (
+                        <SelectItem key={group.id} value={group.id.toString()}>
+                          {group.name}
+                          {group.form?.name && ` (${group.form.name})`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Textarea
+                    className="col-span-4"
+                    placeholder="Write a message to the mentor (optional)"
+                    value={mentorshipMessage}
+                    onChange={(e) => setMentorshipMessage(e.target.value)}
+                  />
+                </div>
+
+                <Button
+                  onClick={handleOrderMentorship}
+                  disabled={!selectedProjectGroup || isRequestSubmitting}
+                  className="w-full"
+                >
+                  {isRequestSubmitting ? (
+                    <div className="flex items-center justify-center">
+                      <Zap className="h-4 w-4 mr-2 animate-pulse" />
+                      Sending Request...
+                    </div>
+                  ) : (
+                    "Send Mentorship Request"
+                  )}
+                </Button>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
-      <Dialog open={isRatingDialogOpen} onOpenChange={setIsRatingDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Rate Mentor</DialogTitle>
-          </DialogHeader>
-          <div className="flex justify-center gap-2 py-4">
-            {renderStarRating()}
-          </div>
-          <Button
-            onClick={handleRating}
-            disabled={userRating === 0}
-            className="w-full"
-          >
-            Submit Rating
-          </Button>
-        </DialogContent>
-      </Dialog>
+
+      {/* Rating Dialog */}
       <Dialog
         open={isRatingDialogOpen}
         onOpenChange={(open) => {
@@ -506,7 +532,6 @@ export default function MentorProfilePage({
             <DialogTitle>Rate Mentor</DialogTitle>
           </DialogHeader>
 
-          {/* Show error message if exists */}
           {ratingError && (
             <div
               className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative"
@@ -535,6 +560,8 @@ export default function MentorProfilePage({
           </Button>
         </DialogContent>
       </Dialog>
+
+      {/* Existing Request Modal */}
       <Dialog
         open={isExistingRequestModalOpen}
         onOpenChange={setIsExistingRequestModalOpen}

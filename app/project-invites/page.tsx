@@ -22,8 +22,10 @@ import {
   ArrowRight,
   Star,
   Clock,
+  Loader2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import CustomToast from "@/components/Toast/custom-toast";
 
 const ProjectDashboard = () => {
   const [userData, setUserData] = useState({
@@ -36,7 +38,30 @@ const ProjectDashboard = () => {
   const [activeTab, setActiveTab] = useState("projects");
   const [processingItems, setProcessingItems] = useState({});
   const [navigatingProject, setNavigatingProject] = useState(null);
+  const [toast, setToast] = useState(null);
   const router = useRouter();
+
+  const ActionButton = ({ onClick, type, itemId, icon: Icon }) => {
+    const isProcessing = processingItems[itemId];
+    const baseClass =
+      type === "accept"
+        ? "bg-primary/10 text-primary hover:bg-primary/20"
+        : "bg-destructive/10 text-destructive hover:bg-destructive/20";
+
+    return (
+      <button
+        onClick={onClick}
+        disabled={isProcessing}
+        className={`p-2 rounded-full transition-colors relative ${baseClass}`}
+      >
+        {isProcessing ? (
+          <Loader2 className="h-5 w-5 animate-spin" />
+        ) : (
+          <Icon className="h-5 w-5" />
+        )}
+      </button>
+    );
+  };
 
   // Fetch comprehensive user data
   useEffect(() => {
@@ -92,6 +117,18 @@ const ProjectDashboard = () => {
           ...prev,
           invites: prev.invites.filter((i) => i.id !== itemId),
         }));
+
+        setToast({
+          type: "success",
+          message: {
+            title: `Project Invitation ${
+              status === "accepted" ? "Accepted" : "Declined"
+            }`,
+            details: `${
+              status === "accepted" ? "Joined" : "Declined"
+            } project: ${invite.group.form.name}`,
+          },
+        });
       } else if (type === "mentor") {
         await updateMentorshipRequestStatus(itemId, status);
 
@@ -99,9 +136,30 @@ const ProjectDashboard = () => {
           ...prev,
           mentorInvites: prev.mentorInvites.filter((i) => i.id !== itemId),
         }));
+
+        setToast({
+          type: "success",
+          message: {
+            title: `Mentorship Request ${
+              status === "accepted" ? "Accepted" : "Declined"
+            }`,
+            details: `${
+              status === "accepted" ? "Accepted" : "Declined"
+            } mentorship request for: ${invite.projectGroup.form.name}`,
+          },
+        });
       }
     } catch (error) {
       console.error(`Failed to process ${type} invite`, error);
+      setToast({
+        type: "error",
+        message: {
+          title: "Action Failed",
+          details: `Failed to process ${type} invitation: ${
+            error.message || "Unknown error occurred"
+          }`,
+        },
+      });
     } finally {
       setProcessingItems((prev) => {
         const newState = { ...prev };
@@ -276,22 +334,22 @@ const ProjectDashboard = () => {
                     </p>
                   </div>
                   <div className="flex space-x-2">
-                    <button
+                    <ActionButton
                       onClick={() =>
                         handleInviteResponse(invite, "rejected", "project")
                       }
-                      className="bg-destructive/10 text-destructive p-2 rounded-full hover:bg-destructive/20"
-                    >
-                      <X className="h-5 w-5" />
-                    </button>
-                    <button
+                      type="reject"
+                      itemId={invite.id}
+                      icon={X}
+                    />
+                    <ActionButton
                       onClick={() =>
                         handleInviteResponse(invite, "accepted", "project")
                       }
-                      className="bg-primary/10 text-primary p-2 rounded-full hover:bg-primary/20"
-                    >
-                      <Check className="h-5 w-5" />
-                    </button>
+                      type="accept"
+                      itemId={invite.id}
+                      icon={Check}
+                    />
                   </div>
                 </div>
               ))
@@ -318,24 +376,22 @@ const ProjectDashboard = () => {
                       </p>
                     </div>
                     <div className="flex space-x-2">
-                      <button
+                      <ActionButton
                         onClick={() =>
                           handleInviteResponse(invite, "rejected", "mentor")
                         }
-                        className="bg-destructive/10 text-destructive p-2 rounded-full hover:bg-destructive/20 transition-colors"
-                        disabled={processingItems[invite.id]}
-                      >
-                        <X className="h-5 w-5" />
-                      </button>
-                      <button
+                        type="reject"
+                        itemId={invite.id}
+                        icon={X}
+                      />
+                      <ActionButton
                         onClick={() =>
                           handleInviteResponse(invite, "accepted", "mentor")
                         }
-                        className="bg-primary/10 text-primary p-2 rounded-full hover:bg-primary/20 transition-colors"
-                        disabled={processingItems[invite.id]}
-                      >
-                        <Check className="h-5 w-5" />
-                      </button>
+                        type="accept"
+                        itemId={invite.id}
+                        icon={Check}
+                      />
                     </div>
                   </div>
                   <div className="flex items-center space-x-2 text-sm text-muted-foreground">
@@ -351,6 +407,13 @@ const ProjectDashboard = () => {
               ))
             : renderEmptyState("No pending mentor invitations.")}
         </div>
+      )}
+      {toast && (
+        <CustomToast
+          type={toast.type}
+          message={toast.message}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );

@@ -24,7 +24,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { createProjectGroup, updateGroupMember } from "@/actions/group";
-import { Ban, Lock } from "lucide-react";
+import { Ban, Lock, Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +36,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { getProfilesByIds } from "@/actions/profile";
+import CustomToast from "../Toast/custom-toast";
 
 const SubmissionGroupManager = ({
   formId,
@@ -50,20 +51,23 @@ const SubmissionGroupManager = ({
   );
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [userToRemove, setUserToRemove] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [currentGroup, setCurrentGroup] = useState(existingGroup);
+  const [localSubmissions, setLocalSubmissions] = useState(submissions);
+  const [isRemoving, setIsRemoving] = useState(false);
 
   // Create a map of existing group members for quick lookup
   const existingMembers = useMemo(() => {
-    if (!existingGroup) return new Map();
+    if (!currentGroup) return new Map();
     return new Map(
-      existingGroup.members.map((member) => [member.userId, member])
+      currentGroup.members.map((member) => [member.userId, member])
     );
-  }, [existingGroup]);
+  }, [currentGroup]);
 
   // Deduplicate submissions based on userId and identify owner
   const uniqueSubmissions = useMemo(() => {
     const userMap = new Map();
-
-    const sortedSubmissions = [...submissions].sort(
+    const sortedSubmissions = [...localSubmissions].sort(
       (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
     );
 
@@ -71,13 +75,13 @@ const SubmissionGroupManager = ({
       if (!userMap.has(submission.userId)) {
         userMap.set(submission.userId, {
           ...submission,
-          isOwner: submission.userId === existingGroup?.ownerId,
+          isOwner: submission.userId === currentGroup?.ownerId,
         });
       }
     });
 
     return Array.from(userMap.values());
-  }, [submissions, existingGroup?.ownerId]);
+  }, [localSubmissions, currentGroup?.ownerId]);
 
   const [profiles, setProfiles] = useState({});
   const userIds = useMemo(
@@ -104,7 +108,6 @@ const SubmissionGroupManager = ({
 
   const handleUserSelection = (userId) => {
     const member = existingMembers.get(userId);
-    // Don't allow selection of existing members, owner, or rejected members
     if (
       existingMembers.has(userId) ||
       uniqueSubmissions.find((s) => s.userId === userId)?.isOwner ||
@@ -122,25 +125,42 @@ const SubmissionGroupManager = ({
   };
 
   const handleCreateOrUpdateGroup = async () => {
-    if (!groupName.trim() || (selectedUsers.size === 0 && !existingGroup))
+    if (!groupName.trim() || (selectedUsers.size === 0 && !currentGroup))
       return;
 
     setIsCreatingGroup(true);
     try {
-      await createProjectGroup({
+      const updatedGroup = await createProjectGroup({
         formId,
         name: groupName,
         description: groupDescription,
         selectedMembers: Array.from(selectedUsers),
-        groupId: existingGroup?.id,
+        groupId: currentGroup?.id,
       });
 
-      setGroupName("");
-      setGroupDescription("");
+      setCurrentGroup(updatedGroup);
       setSelectedUsers(new Set());
       setIsGroupDialogOpen(false);
+
+      setToast({
+        type: "success",
+        message: {
+          title: currentGroup
+            ? "Group Updated Successfully"
+            : "Group Created Successfully",
+          details: `Group: ${groupName} • Members: ${selectedUsers.size} • Form ID: ${formId}`,
+        },
+      });
     } catch (error) {
-      console.error("Error managing group:", error);
+      setToast({
+        type: "error",
+        message: {
+          title: "Group Operation Failed",
+          details: `Error: ${
+            error?.message || "Unknown error occurred"
+          } • Form ID: ${formId}`,
+        },
+      });
     } finally {
       setIsCreatingGroup(false);
     }
@@ -149,15 +169,41 @@ const SubmissionGroupManager = ({
   const handleRemoveMember = async () => {
     if (!userToRemove) return;
 
+    setIsRemoving(true);
     try {
       await updateGroupMember({
-        groupId: existingGroup.id,
+        groupId: currentGroup.id,
         userId: userToRemove,
         action: "remove",
       });
-      setUserToRemove(null);
+
+      setCurrentGroup((prev) => ({
+        ...prev,
+        members: prev.members.filter(
+          (member) => member.userId !== userToRemove
+        ),
+      }));
+
+      setToast({
+        type: "success",
+        message: {
+          title: "Member Removed Successfully",
+          details: `from the group`,
+        },
+      });
     } catch (error) {
-      console.error("Error removing member:", error);
+      setToast({
+        type: "error",
+        message: {
+          title: "Member Removal Failed",
+          details: `Error: ${
+            error?.message || "Unknown error occurred"
+          } • Group ID: ${currentGroup.id}`,
+        },
+      });
+    } finally {
+      setIsRemoving(false);
+      setUserToRemove(null);
     }
   };
 
@@ -174,10 +220,10 @@ const SubmissionGroupManager = ({
             </div>
             <Button
               onClick={() => setIsGroupDialogOpen(true)}
-              disabled={selectedUsers.size === 0 && !existingGroup}
+              disabled={selectedUsers.size === 0 && !currentGroup}
               className="ml-4"
             >
-              {existingGroup ? "Update Group" : "Create Group"}
+              {currentGroup ? "Update Group" : "Create Group"}
               {selectedUsers.size > 0 && ` (${selectedUsers.size} selected)`}
             </Button>
           </CardTitle>
@@ -201,6 +247,7 @@ const SubmissionGroupManager = ({
                   const isExistingMember = !!existingMember;
                   const isRejected = existingMember?.status === "rejected";
                   const profile = profiles[submission.userId];
+
                   return (
                     <TableRow
                       key={submission.userId}
@@ -277,7 +324,7 @@ const SubmissionGroupManager = ({
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {profile?.skills.slice(0, 3).map((skill) => (
+                          {profile?.skills?.slice(0, 3).map((skill) => (
                             <Badge
                               key={skill}
                               variant="secondary"
@@ -286,7 +333,7 @@ const SubmissionGroupManager = ({
                               {skill}
                             </Badge>
                           ))}
-                          {profile?.skills.length > 3 && (
+                          {profile?.skills?.length > 3 && (
                             <Badge variant="secondary" className="text-xs">
                               +{profile.skills.length - 3}
                             </Badge>
@@ -331,11 +378,29 @@ const SubmissionGroupManager = ({
         </CardContent>
       </Card>
 
+      {toast && (
+        <CustomToast
+          type={toast.type}
+          message={toast.message}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+      {/* Loading overlay */}
+      {isRemoving && (
+        <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50">
+          <div className="bg-card p-6 rounded-lg shadow-lg flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-lg font-medium">Removing member...</p>
+          </div>
+        </div>
+      )}
+
       <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {existingGroup ? "Update Project Group" : "Create Project Group"}
+              {currentGroup ? "Update Project Group" : "Create Project Group"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -358,7 +423,7 @@ const SubmissionGroupManager = ({
             </div>
             <div>
               <p className="text-sm text-muted-foreground">
-                {existingGroup ? (
+                {currentGroup ? (
                   <>
                     Current members: {existingMembers.size}
                     {selectedUsers.size > 0 && ` (${selectedUsers.size} new)`}
@@ -381,13 +446,13 @@ const SubmissionGroupManager = ({
               onClick={handleCreateOrUpdateGroup}
               disabled={
                 !groupName.trim() ||
-                (!existingGroup && selectedUsers.size === 0) ||
+                (!currentGroup && selectedUsers.size === 0) ||
                 isCreatingGroup
               }
             >
               {isCreatingGroup
                 ? "Processing..."
-                : existingGroup
+                : currentGroup
                 ? "Update Group"
                 : "Create Group"}
             </Button>
@@ -397,7 +462,7 @@ const SubmissionGroupManager = ({
 
       <AlertDialog
         open={!!userToRemove}
-        onOpenChange={() => setUserToRemove(null)}
+        onOpenChange={(open) => !isRemoving && setUserToRemove(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -408,12 +473,20 @@ const SubmissionGroupManager = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isRemoving}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleRemoveMember}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isRemoving}
             >
-              Remove
+              {isRemoving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                "Remove"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

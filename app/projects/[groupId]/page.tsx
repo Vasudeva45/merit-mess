@@ -110,6 +110,8 @@ export default function ProjectRoom() {
         groupId={groupId}
         onUpdate={fetchProjectData}
         tasks={projectData?.tasks || []}
+        teamMembers={projectData?.members || []}
+        projectName={projectData?.name || ""}
       />
     );
   };

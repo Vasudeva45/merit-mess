@@ -309,7 +309,7 @@ export default function ProjectRoom() {
           className="w-full space-y-4"
         >
           {/* Horizontal Scrollable Tabs */}
-          <TabsList className="w-full overflow-x-auto p-1">
+          <TabsList className="w-full p-1">
             <div className="flex space-x-2">
               <TabsTrigger
                 value="tasks"

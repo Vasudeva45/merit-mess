@@ -1,6 +1,5 @@
 "use client";
-
-import { LuCheckSquare } from "react-icons/lu";
+import { LuCheck } from "react-icons/lu";
 import {
   ElementsType,
   FormElement,
@@ -49,7 +48,7 @@ export const CheckboxFieldFormElement: FormElement = {
     extraAttributes,
   }),
   designerBtnELement: {
-    icon: LuCheckSquare,
+    icon: LuCheck,
     label: "Checkbox Field",
   },
   designerComponent: DesignerComponent,

@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { formschema, formschemaType } from "@/schemas/form";
 import { getSession } from "@auth0/nextjs-auth0";
 import { v4 as uuidv4 } from "uuid";
+import { EmailService } from "./emailService";
 
 type FormWithOwner = {
   id: number;
@@ -93,6 +94,19 @@ export async function CreateForm(data: formschemaType) {
       throw new Error("Something went wrong");
     }
 
+    // Send email notification
+    const userProfile = await prisma.profile.findUnique({
+      where: { userId: user.sub },
+    });
+
+    if (userProfile) {
+      await EmailService.sendFormCreationNotification(
+        userProfile,
+        form.name,
+        form.id
+      );
+    }
+
     return form.id;
   } catch (error) {
     console.error("Error in CreateForm:", error);
@@ -147,15 +161,30 @@ export async function UpdateFormContent(id: number, jsonContent: string) {
     throw new UserNotFoundErr();
   }
 
-  return await prisma.form.update({
+  const form = await prisma.form.update({
     where: {
-      userId: user.id,
+      userId: user.sub,
       id,
     },
     data: {
       content: jsonContent,
     },
   });
+
+  // Send email notification
+  const userProfile = await prisma.profile.findUnique({
+    where: { userId: user.sub },
+  });
+
+  if (userProfile) {
+    await EmailService.sendFormContentUpdateNotification(
+      userProfile,
+      form.name,
+      form.id
+    );
+  }
+
+  return form;
 }
 
 export async function PublishForm(id: number) {
@@ -167,15 +196,30 @@ export async function PublishForm(id: number) {
     throw new UserNotFoundErr();
   }
 
-  return await prisma.form.update({
+  const form = await prisma.form.update({
     where: {
-      userId: user.sub, // Changed from user.id to user.sub
+      userId: user.sub,
       id,
     },
     data: {
       published: true,
     },
   });
+
+  // Send email notification
+  const userProfile = await prisma.profile.findUnique({
+    where: { userId: user.sub },
+  });
+
+  if (userProfile) {
+    await EmailService.sendFormPublishedNotification(
+      userProfile,
+      form.name,
+      form.shareURL
+    );
+  }
+
+  return form;
 }
 
 export async function GetFormContentByUrl(formUrl: string) {
@@ -196,60 +240,200 @@ export async function GetFormContentByUrl(formUrl: string) {
 }
 
 export async function SubmitForm(formUrl: string, content: string) {
+  console.log("Starting form submission process for URL:", formUrl);
   const session = await getSession();
   const user = session?.user;
 
   if (!user || !user.sub) {
+    console.error("No user found in session");
     throw new Error("UNAUTHORIZED");
   }
 
-  // First check if form is accepting submissions
-  const form = await prisma.form.findUnique({
+  console.log("User authenticated:", user.sub);
+
+  // First, get the form details before submission
+  const existingForm = await prisma.form.findUnique({
     where: {
       shareURL: formUrl,
     },
     select: {
+      id: true,
+      name: true,
       status: true,
+      userId: true,
+      published: true,
+      FormSubmissions: {
+        where: {
+          userId: user.sub,
+        },
+      },
     },
   });
 
-  if (!form || form.status === "closed") {
+  console.log("Existing form details:", {
+    formFound: !!existingForm,
+    formStatus: existingForm?.status,
+    isPublished: existingForm?.published,
+  });
+
+  // Check if form exists and is published
+  if (!existingForm || !existingForm.published) {
+    console.error("Form not found or not published");
+    throw new Error("FORM_NOT_FOUND");
+  }
+
+  // Check if form is accepting submissions
+  if (existingForm.status === "closed") {
+    console.error("Form is closed for submissions");
     throw new Error("FORM_CLOSED");
   }
 
-  // Rest of your existing submission logic...
-  const existingSubmission = await prisma.form.findFirst({
-    where: {
-      shareURL: formUrl,
-      FormSubmissions: {
-        some: {
-          userId: user.sub,
-        },
-      },
-    },
-  });
-
-  if (existingSubmission) {
+  // Check for duplicate submissions
+  if (existingForm.FormSubmissions.length > 0) {
+    console.error("Duplicate submission detected");
     throw new Error("DUPLICATE_SUBMISSION");
   }
 
-  return await prisma.form.update({
-    data: {
-      submissions: {
-        increment: 1,
+  try {
+    console.log("Creating form submission in database...");
+
+    // Submit the form
+    const submission = await prisma.form.update({
+      where: {
+        shareURL: formUrl,
       },
-      FormSubmissions: {
-        create: {
-          content,
-          userId: user.sub,
+      data: {
+        submissions: {
+          increment: 1,
+        },
+        FormSubmissions: {
+          create: {
+            content,
+            userId: user.sub,
+          },
         },
       },
-    },
-    where: {
-      shareURL: formUrl,
-      published: true,
-    },
-  });
+    });
+
+    console.log("Form submission created successfully");
+
+    // Get submitter's profile for email notification
+    console.log("Fetching submitter's profile...");
+    const submitterProfile = await prisma.profile.findUnique({
+      where: { userId: user.sub },
+      select: {
+        name: true,
+        email: true,
+      },
+    });
+
+    console.log("Submitter profile found:", {
+      name: submitterProfile?.name,
+      hasEmail: !!submitterProfile?.email,
+    });
+
+    // Get form owner's profile for email notification
+    console.log("Fetching form owner's profile...");
+    const formOwnerProfile = await prisma.profile.findUnique({
+      where: { userId: existingForm.userId },
+      select: {
+        name: true,
+        email: true,
+      },
+    });
+
+    console.log("Form owner profile found:", {
+      name: formOwnerProfile?.name,
+      hasEmail: !!formOwnerProfile?.email,
+    });
+
+    // Send confirmation email to submitter
+    if (submitterProfile?.email) {
+      console.log("Preparing submitter confirmation email");
+      const submitterTemplate = {
+        subject: `Submission Confirmed: ${existingForm.name}`,
+        html: `
+          <h2>Form Submission Confirmation</h2>
+          <p>Hi ${submitterProfile.name},</p>
+          <p>Your submission for "${existingForm.name}" has been received successfully.</p>
+          <p>Thank you for your participation!</p>
+          <p>If you need to reference this submission later, you can find it in your submissions history.</p>
+          <br>
+          <p>Best regards,</p>
+          <p>The MeritMess Team</p>
+        `,
+      };
+
+      try {
+        console.log("Sending confirmation email to submitter...");
+        await EmailService.sendEmail(submitterProfile.email, submitterTemplate);
+        console.log("Submitter confirmation email sent successfully");
+
+        // Add a small delay before sending the next email
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      } catch (emailError) {
+        console.error("Failed to send confirmation email to submitter:", {
+          error: emailError,
+          errorMessage: (emailError as Error).message,
+          errorStack: (emailError as Error).stack,
+          recipientEmail: submitterProfile.email,
+        });
+      }
+    } else {
+      console.log("No email found for submitter - skipping confirmation email");
+    }
+
+    // Send notification email to form owner
+    if (formOwnerProfile?.email) {
+      console.log("Preparing form owner notification email");
+      const ownerTemplate = {
+        subject: `New Submission: ${existingForm.name}`,
+        html: `
+          <h2>New Form Submission Received</h2>
+          <p>Hi ${formOwnerProfile.name},</p>
+          <p>You have received a new submission for "${existingForm.name}".</p>
+          <p>Submission details:</p>
+          <ul>
+            <li>Submitted by: ${submitterProfile?.name || "Anonymous"}</li>
+            <li>Date: ${new Date().toLocaleString()}</li>
+          </ul>
+          <a href="${process.env.NEXT_PUBLIC_APP_URL}/forms/${
+          existingForm.id
+        }/submissions">View Submission</a>
+          <br>
+          <p>Best regards,</p>
+          <p>The MeritMess Team</p>
+        `,
+      };
+
+      try {
+        console.log("Sending notification email to form owner...");
+        await EmailService.sendEmail(formOwnerProfile.email, ownerTemplate);
+        console.log("Form owner notification email sent successfully");
+      } catch (emailError) {
+        console.error("Failed to send notification email to form owner:", {
+          error: emailError,
+          errorMessage: (emailError as Error).message,
+          errorStack: (emailError as Error).stack,
+          recipientEmail: formOwnerProfile.email,
+        });
+      }
+    } else {
+      console.log(
+        "No email found for form owner - skipping notification email"
+      );
+    }
+
+    console.log("Form submission process completed successfully");
+    return submission;
+  } catch (error) {
+    console.error("Error in form submission process:", {
+      error,
+      errorMessage: (error as Error).message,
+      errorStack: (error as Error).stack,
+    });
+    throw error;
+  }
 }
 
 export async function CheckDuplicateSubmission(
@@ -343,7 +527,7 @@ export async function UpdateFormStatus(id: number, status: string) {
     throw new UserNotFoundErr();
   }
 
-  return await prisma.form.update({
+  const form = await prisma.form.update({
     where: {
       userId: user.sub,
       id,
@@ -352,6 +536,21 @@ export async function UpdateFormStatus(id: number, status: string) {
       status,
     },
   });
+
+  // Send email notification
+  const userProfile = await prisma.profile.findUnique({
+    where: { userId: user.sub },
+  });
+
+  if (userProfile) {
+    await EmailService.sendFormStatusUpdateNotification(
+      userProfile,
+      form.name,
+      status
+    );
+  }
+
+  return form;
 }
 
 export async function getPublicFormsWithOwners(): Promise<FormWithOwner[]> {

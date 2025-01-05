@@ -5,6 +5,7 @@ import { getSession } from "@auth0/nextjs-auth0";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { EmailService } from "@/actions/emailService";
 
 // Validation Schema
 const MentorshipRequestSchema = z.object({
@@ -90,16 +91,27 @@ export async function createMentorshipRequest(input: {
           select: {
             name: true,
             imageUrl: true,
+            email: true,
           },
         },
         mentor: {
           select: {
             name: true,
             imageUrl: true,
+            email: true,
           },
         },
       },
     });
+
+    // Send email notification to mentor
+    if (mentorshipRequest.mentor.email) {
+      await EmailService.sendMentorRequest(
+        mentorshipRequest,
+        mentorshipRequest.mentor,
+        mentorshipRequest.projectGroup
+      );
+    }
 
     // Revalidate relevant paths
     revalidatePath(`/profile/${decodedMentorId}`);
@@ -213,11 +225,10 @@ export async function getMentorshipRequests() {
     throw new Error("Unauthorized");
   }
 
-  // Only fetch requests where the current user is the mentor
   return await prisma.mentorshipRequest.findMany({
     where: {
       AND: [
-        { mentorId: user.sub }, // Only get requests for this specific mentor
+        { mentorId: user.sub },
         {
           OR: [{ status: "mentor_invited" }, { status: "pending" }],
         },
@@ -293,11 +304,13 @@ export async function updateMentorshipRequestStatus(
     throw new Error("Unauthorized");
   }
 
-  // Fetch the request with its related project group
+  // Fetch the request with its related project group and profiles
   const request = await prisma.mentorshipRequest.findUnique({
     where: { id: requestId },
     include: {
       projectGroup: true,
+      requester: true,
+      mentor: true,
     },
   });
 
@@ -305,9 +318,7 @@ export async function updateMentorshipRequestStatus(
     throw new Error("Mentorship request not found");
   }
 
-  // Different logic based on the current status and the action
   if (status === "accepted" && request.status === "mentor_invited") {
-    // When a mentor accepts the invitation, update the project group and the request
     const updatedRequest = await prisma.$transaction(async (prisma) => {
       // Update the project group to set the mentor
       await prisma.projectGroup.update({
@@ -327,8 +338,7 @@ export async function updateMentorshipRequestStatus(
         },
       });
 
-      // Update the mentorship request status
-      return await prisma.mentorshipRequest.update({
+      const result = await prisma.mentorshipRequest.update({
         where: { id: requestId },
         data: {
           status: "accepted",
@@ -340,6 +350,17 @@ export async function updateMentorshipRequestStatus(
           mentor: true,
         },
       });
+
+      // Send email notification to requester about acceptance
+      if (request.requester.email) {
+        await EmailService.sendProjectUpdate(
+          request.requester,
+          request.projectGroup,
+          `Your mentorship request has been accepted by ${request.mentor.name}!`
+        );
+      }
+
+      return result;
     });
 
     // Revalidate paths
@@ -348,7 +369,6 @@ export async function updateMentorshipRequestStatus(
 
     return updatedRequest;
   } else if (status === "rejected" && request.status === "mentor_invited") {
-    // If mentor rejects the invitation
     const updatedRequest = await prisma.mentorshipRequest.update({
       where: { id: requestId },
       data: {
@@ -356,6 +376,15 @@ export async function updateMentorshipRequestStatus(
         updatedAt: new Date(),
       },
     });
+
+    // Send email notification to requester about rejection
+    if (request.requester.email) {
+      await EmailService.sendProjectUpdate(
+        request.requester,
+        request.projectGroup,
+        `Your mentorship request has been declined by ${request.mentor.name}.`
+      );
+    }
 
     // Revalidate paths
     revalidatePath("/dashboard/mentorship-requests");
@@ -379,25 +408,21 @@ export async function rateMentor(input: { mentorId: string; rating: number }) {
     throw new Error("Unauthorized");
   }
 
-  // Decode the mentorId
   const decodedMentorId = decodeURIComponent(input.mentorId);
 
   console.log("Current User ID (from session):", user.sub);
   console.log("Mentor ID (decoded):", decodedMentorId);
 
-  // Prevent rating yourself
   if (user.sub === decodedMentorId) {
     throw new Error("You cannot rate yourself");
   }
 
   try {
-    // Validate input
     const validatedInput = MentorRatingSchema.parse({
       ...input,
       mentorId: decodedMentorId,
     });
 
-    // Detailed profile lookup
     const mentorProfile = await prisma.profile.findUnique({
       where: {
         userId: decodedMentorId,
@@ -405,6 +430,7 @@ export async function rateMentor(input: { mentorId: string; rating: number }) {
       select: {
         userId: true,
         name: true,
+        email: true,
       },
     });
 
@@ -425,7 +451,6 @@ export async function rateMentor(input: { mentorId: string; rating: number }) {
     let updatedMentorRating;
 
     if (existingRating) {
-      // Update existing rating
       updatedMentorRating = await prisma.mentorRating.update({
         where: { id: existingRating.id },
         data: {
@@ -433,7 +458,6 @@ export async function rateMentor(input: { mentorId: string; rating: number }) {
         },
       });
     } else {
-      // Create new rating
       updatedMentorRating = await prisma.mentorRating.create({
         data: {
           mentorId: validatedInput.mentorId,
@@ -461,6 +485,27 @@ export async function rateMentor(input: { mentorId: string; rating: number }) {
         mentorRating: averageRating,
       },
     });
+
+    // Fetch rater's profile for the notification
+    const raterProfile = await prisma.profile.findUnique({
+      where: {
+        userId: user.sub,
+      },
+      select: {
+        name: true,
+      },
+    });
+
+    // Send email notification to mentor about new rating
+    if (mentorProfile.email) {
+      await EmailService.sendProjectUpdate(
+        mentorProfile,
+        { name: "Mentor Rating" } as ProjectGroup,
+        `You've received a new ${input.rating}-star rating from ${
+          raterProfile?.name || "a user"
+        }!`
+      );
+    }
 
     // Revalidate the mentor's profile path
     revalidatePath(`/profile/${validatedInput.mentorId}`);

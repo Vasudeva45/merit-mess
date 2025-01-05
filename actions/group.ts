@@ -3,13 +3,14 @@
 import prisma from "@/lib/prisma";
 import { getSession } from "@auth0/nextjs-auth0";
 import { v4 as uuidv4 } from "uuid";
+import { EmailService } from "@/actions/emailService";
 
 interface CreateGroupInput {
   formId: number;
   name: string;
   description?: string;
   selectedMembers: string[];
-  groupId?: number; // Optional groupId for updates
+  groupId?: number;
 }
 
 export async function createProjectGroup(input: CreateGroupInput) {
@@ -33,7 +34,6 @@ export async function createProjectGroup(input: CreateGroupInput) {
 
   // If updating an existing group
   if (input.groupId) {
-    // First, get existing members to avoid duplicates
     const existingGroup = await prisma.projectGroup.findUnique({
       where: { id: input.groupId },
       include: { members: true },
@@ -43,23 +43,20 @@ export async function createProjectGroup(input: CreateGroupInput) {
       throw new Error("Group not found");
     }
 
-    // Get existing member user IDs
     const existingMemberIds = new Set(
       existingGroup.members.map((member) => member.userId)
     );
 
-    // Filter out already existing members from selectedMembers
     const newMembers = input.selectedMembers.filter(
       (userId) => !existingMemberIds.has(userId)
     );
 
-    // Update the group and add new members
-    return await prisma.projectGroup.update({
+    const updatedGroup = await prisma.projectGroup.update({
       where: { id: input.groupId },
       data: {
         name: input.name,
         description: input.description,
-        status: "active", // update the status if needed
+        status: "active",
         members: {
           create: newMembers.map((userId) => ({
             userId,
@@ -69,23 +66,34 @@ export async function createProjectGroup(input: CreateGroupInput) {
         },
       },
       include: {
-        members: true,
+        members: {
+          include: {
+            profile: true,
+          },
+        },
       },
     });
+
+    // Send invitation emails to new members
+    for (const member of updatedGroup.members) {
+      if (member.status === "pending" && member.profile.email) {
+        await EmailService.sendTeamInvitation(member.profile, updatedGroup);
+      }
+    }
+
+    return updatedGroup;
   }
 
   // If creating a new group
   const groupUid = uuidv4();
-
-  // Create new group with owner and members
-  return await prisma.projectGroup.create({
+  const createdGroup = await prisma.projectGroup.create({
     data: {
       formId: input.formId,
       name: input.name,
       description: input.description,
       ownerId: user.sub,
       uid: groupUid,
-      status: "active", // set the initial status to "active"
+      status: "active",
       members: {
         create: [
           {
@@ -102,9 +110,22 @@ export async function createProjectGroup(input: CreateGroupInput) {
       },
     },
     include: {
-      members: true,
+      members: {
+        include: {
+          profile: true,
+        },
+      },
     },
   });
+
+  // Send invitation emails to all pending members
+  for (const member of createdGroup.members) {
+    if (member.status === "pending" && member.profile.email) {
+      await EmailService.sendTeamInvitation(member.profile, createdGroup);
+    }
+  }
+
+  return createdGroup;
 }
 
 export async function getProjectGroup(formId: number) {
@@ -153,20 +174,42 @@ export async function updateMemberStatus(
       id: groupId,
       ownerId: user.sub,
     },
+    include: {
+      members: {
+        include: {
+          profile: true,
+        },
+      },
+    },
   });
 
   if (!group) {
     throw new Error("Group not found or unauthorized");
   }
 
-  return await prisma.groupMember.update({
+  const updatedMember = await prisma.groupMember.update({
     where: {
       id: memberId,
     },
     data: {
       status,
     },
+    include: {
+      profile: true,
+    },
   });
+
+  // Send status update notification
+  if (updatedMember.profile.email) {
+    const statusMessage = `Your membership status for ${group.name} has been ${status}.`;
+    await EmailService.sendProjectUpdate(
+      updatedMember.profile,
+      group,
+      statusMessage
+    );
+  }
+
+  return updatedMember;
 }
 
 export async function getFormSubmissionsWithProfiles(formId: number) {
@@ -296,6 +339,13 @@ export async function updateGroupMember({
       id: groupId,
       ownerId: user.sub,
     },
+    include: {
+      members: {
+        include: {
+          profile: true,
+        },
+      },
+    },
   });
 
   if (!group) {
@@ -303,17 +353,33 @@ export async function updateGroupMember({
   }
 
   if (action === "remove") {
-    return await prisma.groupMember.deleteMany({
+    // Find the member's profile before deletion
+    const memberProfile = await prisma.profile.findUnique({
+      where: { userId },
+    });
+
+    const result = await prisma.groupMember.deleteMany({
       where: {
         groupId,
         userId,
       },
     });
+
+    // Send removal notification if member has an email
+    if (memberProfile?.email) {
+      const removalMessage = `You have been removed from the project group: ${group.name}`;
+      await EmailService.sendProjectUpdate(
+        memberProfile,
+        group,
+        removalMessage
+      );
+    }
+
+    return result;
   }
 }
 
 export async function getPublicProjects() {
-  // Fetch project groups with their associated forms
   const projects = await prisma.projectGroup.findMany({
     where: {
       form: {
@@ -341,10 +407,9 @@ export async function getPublicProjects() {
     orderBy: {
       createdAt: "desc",
     },
-    take: 6, // Limit to 6 projects
+    take: 6,
   });
 
-  // Transform the data to match the existing structure in the landing page
   return projects.map((project) => ({
     title: project.name,
     description: project.form.description,

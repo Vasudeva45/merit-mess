@@ -10,6 +10,7 @@ import {
   type ProfileUpdateData,
   type MentorDetails,
 } from "@/schemas/profile";
+import { EmailService } from "@/actions/emailService";
 
 class UserNotFoundErr extends Error {}
 class ValidationError extends Error {
@@ -110,8 +111,6 @@ export async function updateProfile(
       type,
       skills: skills || [],
       ongoing_projects: ongoing_projects as any,
-
-      // Explicitly map mentor-specific fields
       mentorExpertise: type === "mentor" ? mentorDetails?.expertise || [] : [],
       yearsOfExperience:
         type === "mentor" ? mentorDetails?.yearsOfExperience : null,
@@ -123,6 +122,8 @@ export async function updateProfile(
         type === "mentor" ? mentorDetails?.certifications || [] : [],
     };
 
+    console.log("Profile update data:", updateData);
+
     const updatedProfile = await prisma.profile.upsert({
       where: { userId: user.sub },
       update: updateData,
@@ -132,12 +133,24 @@ export async function updateProfile(
       },
     });
 
-    console.log("Updated Profile:", JSON.stringify(updatedProfile, null, 2));
+    console.log("Profile updated successfully:", updatedProfile);
+
+    // Send profile update email notification
+    try {
+      console.log("Attempting to send email notification...");
+      await EmailService.sendProfileUpdateNotification(updatedProfile);
+      console.log("Email notification sent successfully");
+    } catch (emailError) {
+      console.error("Detailed email error:", emailError);
+      console.error("Email error stack:", (emailError as Error).stack);
+    }
+
     revalidatePath("/profile");
     return { success: true, data: updatedProfile };
   } catch (error) {
-    console.error("Error updating profile:", error);
-    throw new Error("Failed to update profile");
+    console.error("Profile update error:", error);
+    console.error("Error stack:", (error as Error).stack);
+    throw new Error(`Failed to update profile: ${(error as Error).message}`);
   }
 }
 

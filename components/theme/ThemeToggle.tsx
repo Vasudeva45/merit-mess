@@ -16,7 +16,7 @@ export function ThemeToggle() {
   };
 
   return (
-    <div className="flex items-center space-x-2 bg-white dark:bg-gray-800 rounded-lg p-2">
+    <div className="flex items-center space-x-2   rounded-lg p-2">
       <button
         onClick={() => handleThemeChange('light')}
         className={`p-2 rounded-md ${

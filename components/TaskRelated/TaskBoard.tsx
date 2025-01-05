@@ -37,14 +37,10 @@ const TASK_STATUS = {
   todo: { label: "To Do", icon: Circle, color: "text-gray-500" },
   "in-progress": { label: "In Progress", icon: Timer, color: "text-blue-500" },
   review: { label: "Review", icon: AlertCircle, color: "text-yellow-500" },
-  completed: {
-    label: "Completed",
-    icon: CheckCircle2,
-    color: "text-green-500",
-  },
+  completed: { label: "Completed", icon: CheckCircle2, color: "text-green-500" },
 };
 
-const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
+const TaskBoard = ({ tasks = [], members = [], groupId, onUpdate }) => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [taskData, setTaskData] = useState(tasks);
   const [isLoading, setIsLoading] = useState(false);
@@ -65,7 +61,14 @@ const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
         priority: newTask.priority,
         assigneeIds: newTask.assigneeIds ? [newTask.assigneeIds] : [],
       };
-      await createTask(groupId, taskData);
+
+      const createdTask = await createTask(groupId, taskData);
+
+      setTaskData((prevTasks) => [
+        ...prevTasks,
+        { ...createdTask, status: "todo" },
+      ]);
+
       setIsCreateOpen(false);
       setNewTask({
         title: "",
@@ -73,6 +76,7 @@ const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
         priority: "medium",
         assigneeIds: "",
       });
+
       onUpdate();
     } catch (error) {
       console.error("Failed to create task:", error);
@@ -82,28 +86,29 @@ const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
   };
 
   const handleStatusChange = async (taskId, newStatus) => {
-    setIsLoading(true);
+    setTaskData((prevTasks) =>
+      prevTasks.map((task) =>
+        task.id === taskId ? { ...task, isLoading: true } : task
+      )
+    );
+
     try {
-      // Optimistically update the local state
       setTaskData((prevTasks) =>
         prevTasks.map((task) =>
           task.id === taskId ? { ...task, status: newStatus } : task
         )
       );
 
-      // Make the API call to update the status on the server
       await updateTaskStatus(taskId, newStatus);
-      onUpdate(); // Refetch the tasks after successful update
+      onUpdate();
     } catch (error) {
-      // If the API call fails, revert the local state update
-      setTaskData((prevTasks) =>
-        prevTasks.map((task) =>
-          task.id === taskId ? { ...task, status: task.status } : task
-        )
-      );
       console.error("Failed to update task status:", error);
     } finally {
-      setIsLoading(false);
+      setTaskData((prevTasks) =>
+        prevTasks.map((task) =>
+          task.id === taskId ? { ...task, isLoading: false } : task
+        )
+      );
     }
   };
 
@@ -230,7 +235,6 @@ const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
                     task={task}
                     onStatusChange={handleStatusChange}
                     members={members}
-                    isLoading={isLoading}
                   />
                 ))}
               </div>
@@ -242,8 +246,9 @@ const TaskBoard = ({ tasks, members, groupId, onUpdate }) => {
   );
 };
 
-const TaskCard = ({ task, onStatusChange, members, isLoading }) => {
+const TaskCard = ({ task, onStatusChange, members }) => {
   const [isEditOpen, setIsEditOpen] = useState(false);
+
   return (
     <>
       <Card
@@ -256,10 +261,14 @@ const TaskCard = ({ task, onStatusChange, members, isLoading }) => {
             <Select
               value={task.status}
               onValueChange={(value) => onStatusChange(task.id, value)}
-              disabled={isLoading}
+              disabled={task.isLoading}
             >
               <SelectTrigger className="h-6 w-full sm:w-24">
-                <SelectValue />
+                {task.isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <SelectValue />
+                )}
               </SelectTrigger>
               <SelectContent>
                 {Object.entries(TASK_STATUS).map(([value, { label }]) => (

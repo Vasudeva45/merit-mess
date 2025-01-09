@@ -1,11 +1,11 @@
-import React from "react";
-import { Suspense } from "react";
+"use client";
+
+import React, { Suspense } from "react";
 import { MdCreateNewFolder, MdDashboard, MdAutoGraph } from "react-icons/md";
 import { FaWpforms, FaSearch, FaClipboardList } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { SearchForms } from "./SearchForms";
-import { getPublicFormsWithOwners } from "@/actions/form";
 import LandingPage from "./LandingPage";
 import { cn } from "@/lib/utils";
 
@@ -48,16 +48,34 @@ const FeatureHighlight = ({ icon: Icon, title, description }) => (
   </div>
 );
 
-export default async function EnhancedHomePage({ user }) {
-  const forms = await getPublicFormsWithOwners();
+const LoadingPlaceholder = () => (
+  <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+    {[...Array(6)].map((_, i) => (
+      <Card key={i} className="animate-pulse">
+        <CardHeader className="space-y-4">
+          <div className="h-6 bg-muted rounded w-3/4"></div>
+          <div className="h-4 bg-muted rounded w-1/2"></div>
+        </CardHeader>
+        <CardContent>
+          <div className="h-4 bg-muted rounded w-full mb-2"></div>
+          <div className="h-4 bg-muted rounded w-3/4"></div>
+        </CardContent>
+      </Card>
+    ))}
+  </div>
+);
 
+export default function HomePage({ user, initialForms }) {
   if (!user) {
     return <LandingPage />;
   }
 
-  const totalForms = forms.length;
-  const publicForms = forms.filter((form) => form.status !== "closed").length;
-  const domainsCount = [...new Set(forms.map((form) => form.domain))].length;
+  const totalForms = initialForms.length;
+  const publicForms = initialForms.filter(
+    (form) => form.status !== "closed"
+  ).length;
+  const domainsCount = [...new Set(initialForms.map((form) => form.domain))]
+    .length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -71,10 +89,7 @@ export default async function EnhancedHomePage({ user }) {
                 Collaborative Form Platform
               </span>
             </div>
-            <h1
-              className="text-5xl font-extrabold tracking-tight leading-tight 
-              text-transparent bg-clip-text bg-gradient-to-r from-foreground to-primary/70"
-            >
+            <h1 className="text-5xl font-extrabold tracking-tight leading-tight text-transparent bg-clip-text bg-gradient-to-r from-foreground to-primary/70">
               Discover and Create Public Forms
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
@@ -174,25 +189,8 @@ export default async function EnhancedHomePage({ user }) {
             community.
           </p>
         </div>
-        <Suspense
-          fallback={
-            <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-              {[...Array(6)].map((_, i) => (
-                <Card key={i} className="animate-pulse">
-                  <CardHeader className="space-y-4">
-                    <div className="h-6 bg-muted rounded w-3/4"></div>
-                    <div className="h-4 bg-muted rounded w-1/2"></div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-4 bg-muted rounded w-full mb-2"></div>
-                    <div className="h-4 bg-muted rounded w-3/4"></div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          }
-        >
-          <SearchForms initialForms={forms} />
+        <Suspense fallback={<LoadingPlaceholder />}>
+          <SearchForms initialForms={initialForms} />
         </Suspense>
       </div>
     </div>

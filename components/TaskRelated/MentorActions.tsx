@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { scheduleMeeting, shareResource } from "@/actions/task";
-import CustomToast, { ToastMessage } from "@/components/Toast/custom-toast";
+import { toast } from "sonner";
 
 export default function MentorActions({ groupId, onUpdate, tasks }) {
   const [meetingDialogOpen, setMeetingDialogOpen] = useState(false);
@@ -27,26 +27,15 @@ export default function MentorActions({ groupId, onUpdate, tasks }) {
     credentials: "",
     url: "",
   });
-  const [toast, setToast] = useState<{
-    message: ToastMessage;
-    type: "success" | "error";
-  } | null>(null);
-
-  const showToast = (message: ToastMessage, type: "success" | "error") => {
-    setToast({ message, type });
-  };
 
   const handleScheduleMeeting = async () => {
     try {
       if (!meetingDate || !meetingTitle) {
-        showToast(
-          {
-            title: "Validation Error",
-            details:
-              "Please fill in all required fields: Meeting Title and Date",
-          },
-          "error"
-        );
+        toast({
+          title: "Error",
+          description: "Please fill in all required fields",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -57,180 +46,157 @@ export default function MentorActions({ groupId, onUpdate, tasks }) {
         meetLink: meetingLink,
       });
 
-      showToast(
-        {
-          title: "Meeting Scheduled",
-          details: `Team meeting "${meetingTitle}" has been scheduled for ${meetingDate.toLocaleDateString()}`,
-        },
-        "success"
-      );
-
+      toast({
+        title: "Success",
+        description: "Team meeting scheduled successfully",
+      });
       setMeetingDialogOpen(false);
       onUpdate?.();
     } catch (error) {
-      showToast(
-        {
-          title: "Scheduling Failed",
-          details: "Unable to schedule the meeting. Please try again later.",
-        },
-        "error"
-      );
+      toast({
+        title: "Error",
+        description: "Failed to schedule meeting",
+        variant: "destructive",
+      });
     }
   };
 
   const handleShareResource = async () => {
     try {
       if (!resource.name) {
-        showToast(
-          {
-            title: "Validation Error",
-            details: "Please provide a name for the resource",
-          },
-          "error"
-        );
+        toast({
+          title: "Error",
+          description: "Please fill in all required fields",
+          variant: "destructive",
+        });
         return;
       }
 
+      // Create a discussion to share the resource
       await shareResource(groupId, {
         name: resource.name,
         url: resource.url || "",
         type: resourceType,
         description: JSON.stringify({
           ...resource,
-          type: resourceType,
-        }),
+          type: resourceType
+        })
       });
 
-      showToast(
-        {
-          title: "Resource Shared",
-          details: `Successfully shared ${resourceType}: ${resource.name}`,
-        },
-        "success"
-      );
-
+      toast({
+        title: "Success",
+        description: "Resource shared successfully",
+      });
       setResourceDialogOpen(false);
       onUpdate?.();
     } catch (error) {
-      showToast(
-        {
-          title: "Sharing Failed",
-          details: "Unable to share the resource. Please try again later.",
-        },
-        "error"
-      );
+      toast({
+        title: "Error",
+        description: "Failed to share resource",
+        variant: "destructive",
+      });
     }
   };
 
   return (
-    <>
-      <div className="flex space-x-2 mb-4">
-        <Button variant="outline" onClick={() => setMeetingDialogOpen(true)}>
-          Schedule Team Meeting
-        </Button>
+    <div className="flex space-x-2 mb-4">
+      <Button variant="outline" onClick={() => setMeetingDialogOpen(true)}>
+        Schedule Team Meeting
+      </Button>
 
-        <Button variant="outline" onClick={() => setResourceDialogOpen(true)}>
-          Share Resources
-        </Button>
+      <Button variant="outline" onClick={() => setResourceDialogOpen(true)}>
+        Share Resources
+      </Button>
 
-        <Dialog open={meetingDialogOpen} onOpenChange={setMeetingDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Schedule Team Meeting</DialogTitle>
-              <DialogDescription>
-                Set up a meeting with your team members
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <Input
-                placeholder="Meeting Title"
-                value={meetingTitle}
-                onChange={(e) => setMeetingTitle(e.target.value)}
-              />
+      <Dialog open={meetingDialogOpen} onOpenChange={setMeetingDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule Team Meeting</DialogTitle>
+            <DialogDescription>
+              Set up a meeting with your team members
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              placeholder="Meeting Title"
+              value={meetingTitle}
+              onChange={(e) => setMeetingTitle(e.target.value)}
+            />
+            <Textarea
+              placeholder="Meeting Description"
+              value={meetingDesc}
+              onChange={(e) => setMeetingDesc(e.target.value)}
+            />
+            <Input
+              placeholder="Meeting Link (optional)"
+              value={meetingLink}
+              onChange={(e) => setMeetingLink(e.target.value)}
+            />
+            <Calendar
+              mode="single"
+              selected={meetingDate}
+              onSelect={setMeetingDate}
+              className="rounded-md border"
+            />
+            <Button onClick={handleScheduleMeeting}>Schedule Meeting</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={resourceDialogOpen} onOpenChange={setResourceDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Share Resource</DialogTitle>
+            <DialogDescription>
+              Share important resources with your team
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <select 
+              value={resourceType}
+              onChange={(e) => setResourceType(e.target.value)}
+              className="w-full p-2 border rounded"
+            >
+              <option value="credentials">Credentials</option>
+              <option value="guide">Guide</option>
+              <option value="link">External Link</option>
+            </select>
+            <Input
+              placeholder="Resource Name"
+              value={resource.name}
+              onChange={(e) =>
+                setResource({ ...resource, name: e.target.value })
+              }
+            />
+            {resourceType === "credentials" && (
               <Textarea
-                placeholder="Meeting Description"
-                value={meetingDesc}
-                onChange={(e) => setMeetingDesc(e.target.value)}
-              />
-              <Input
-                placeholder="Meeting Link (optional)"
-                value={meetingLink}
-                onChange={(e) => setMeetingLink(e.target.value)}
-              />
-              <Calendar
-                mode="single"
-                selected={meetingDate}
-                onSelect={setMeetingDate}
-                className="rounded-md border"
-              />
-              <Button onClick={handleScheduleMeeting}>Schedule Meeting</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={resourceDialogOpen} onOpenChange={setResourceDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Share Resource</DialogTitle>
-              <DialogDescription>
-                Share important resources with your team
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <select
-                value={resourceType}
-                onChange={(e) => setResourceType(e.target.value)}
-                className="w-full p-2 border rounded"
-              >
-                <option value="credentials">Credentials</option>
-                <option value="guide">Guide</option>
-                <option value="link">External Link</option>
-              </select>
-              <Input
-                placeholder="Resource Name"
-                value={resource.name}
+                placeholder="Credentials (e.g., username, password)"
+                value={resource.credentials}
                 onChange={(e) =>
-                  setResource({ ...resource, name: e.target.value })
+                  setResource({ ...resource, credentials: e.target.value })
                 }
               />
-              {resourceType === "credentials" && (
-                <Textarea
-                  placeholder="Credentials (e.g., username, password)"
-                  value={resource.credentials}
-                  onChange={(e) =>
-                    setResource({ ...resource, credentials: e.target.value })
-                  }
-                />
-              )}
-              {resourceType !== "credentials" && (
-                <Input
-                  placeholder="Resource URL"
-                  value={resource.url}
-                  onChange={(e) =>
-                    setResource({ ...resource, url: e.target.value })
-                  }
-                />
-              )}
-              <Textarea
-                placeholder="Resource Description"
-                value={resource.description}
+            )}
+            {resourceType !== "credentials" && (
+              <Input
+                placeholder="Resource URL"
+                value={resource.url}
                 onChange={(e) =>
-                  setResource({ ...resource, description: e.target.value })
+                  setResource({ ...resource, url: e.target.value })
                 }
               />
-              <Button onClick={handleShareResource}>Share Resource</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {toast && (
-        <CustomToast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
-    </>
+            )}
+            <Textarea
+              placeholder="Resource Description"
+              value={resource.description}
+              onChange={(e) =>
+                setResource({ ...resource, description: e.target.value })
+              }
+            />
+            <Button onClick={handleShareResource}>Share Resource</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

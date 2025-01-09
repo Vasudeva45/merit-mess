@@ -74,6 +74,64 @@ const ProjectForm = ({
   </motion.div>
 );
 
+const StudentFields = ({ formData, handleInputChange }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="col-span-2 space-y-6 border-t pt-6"
+  >
+    <h3 className="text-xl font-semibold">Student Details</h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <Label htmlFor="studentDetails.currentLevel">Current Level</Label>
+        <Input
+          id="studentDetails.currentLevel"
+          name="studentDetails.currentLevel"
+          value={formData.studentDetails.currentLevel}
+          onChange={handleInputChange}
+          placeholder="e.g., Undergraduate, Bootcamp Student"
+          className="mt-1"
+        />
+      </div>
+      <div>
+        <Label htmlFor="studentDetails.interests">Interests</Label>
+        <Input
+          id="studentDetails.interests"
+          name="studentDetails.interests"
+          value={formData.studentDetails.interests}
+          onChange={handleInputChange}
+          placeholder="e.g., Web Development, Mobile Apps (comma-separated)"
+          className="mt-1"
+        />
+      </div>
+      <div>
+        <Label htmlFor="studentDetails.preferredLanguages">
+          Preferred Languages
+        </Label>
+        <Input
+          id="studentDetails.preferredLanguages"
+          name="studentDetails.preferredLanguages"
+          value={formData.studentDetails.preferredLanguages}
+          onChange={handleInputChange}
+          placeholder="e.g., JavaScript, Python (comma-separated)"
+          className="mt-1"
+        />
+      </div>
+      <div>
+        <Label htmlFor="studentDetails.goals">Learning Goals</Label>
+        <Textarea
+          id="studentDetails.goals"
+          name="studentDetails.goals"
+          value={formData.studentDetails.goals}
+          onChange={handleInputChange}
+          placeholder="What do you want to achieve?"
+          className="mt-1"
+        />
+      </div>
+    </div>
+  </motion.div>
+);
+
 const MentorFields = ({ formData, handleInputChange }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
@@ -177,6 +235,67 @@ const ProfileStepTwo = ({
             />
           </div>
           <div>
+            <Label htmlFor="location">Location</Label>
+            <Input
+              id="location"
+              name="location"
+              value={formData.location || ""}
+              onChange={handleInputChange}
+              placeholder="Enter your location"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="organization">Organization</Label>
+            <Input
+              id="organization"
+              name="organization"
+              value={formData.organization || ""}
+              onChange={handleInputChange}
+              placeholder="Enter your organization"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="bio">Bio</Label>
+            <Textarea
+              id="bio"
+              name="bio"
+              value={formData.bio || ""}
+              onChange={handleInputChange}
+              placeholder="Tell us about yourself"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="github">GitHub Profile</Label>
+            <Input
+              id="github"
+              name="github"
+              value={formData.github || ""}
+              onChange={handleInputChange}
+              placeholder="Your GitHub profile URL"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="linkedin">LinkedIn Profile</Label>
+            <Input
+              id="linkedin"
+              name="linkedin"
+              value={formData.linkedin || ""}
+              onChange={handleInputChange}
+              placeholder="Your LinkedIn profile URL"
+              className="mt-1"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        <h3 className="text-xl font-semibold">Skills & Achievements</h3>
+        <div className="space-y-4">
+          <div>
             <Label htmlFor="skills">Skills</Label>
             <Input
               id="skills"
@@ -187,12 +306,6 @@ const ProfileStepTwo = ({
               className="mt-1"
             />
           </div>
-        </div>
-      </div>
-
-      <div className="space-y-6">
-        <h3 className="text-xl font-semibold">Projects & Achievements</h3>
-        <div className="space-y-4">
           <div>
             <Label htmlFor="achievements">Achievements</Label>
             <Textarea
@@ -233,8 +346,13 @@ const ProfileStepTwo = ({
         </div>
       </div>
 
-      {formData.type === "mentor" && (
+      {formData.type === "mentor" ? (
         <MentorFields
+          formData={formData}
+          handleInputChange={handleInputChange}
+        />
+      ) : (
+        <StudentFields
           formData={formData}
           handleInputChange={handleInputChange}
         />

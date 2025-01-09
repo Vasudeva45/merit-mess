@@ -100,10 +100,7 @@ export async function updateProfile(formData) {
     const validation = profileUpdateSchema.safeParse(sanitizedFormData);
 
     if (!validation.success) {
-      console.error(
-        "Validation errors:",
-        validation.error.flatten().fieldErrors
-      );
+      console.error("Validation errors:", validation.error.flatten().fieldErrors);
       throw new ValidationError(validation.error.flatten().fieldErrors);
     }
 
@@ -120,41 +117,20 @@ export async function updateProfile(formData) {
     const updateData = {
       ...otherProfileData,
       type,
-      skills: Array.isArray(skills)
-        ? skills
-        : (skills || "")
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean),
+      skills: Array.isArray(skills) ? skills : (skills || "").split(",").map(s => s.trim()).filter(Boolean),
       ongoing_projects: Array.isArray(ongoing_projects) ? ongoing_projects : [],
-      mentorExpertise:
-        type === "mentor" && mentorDetails?.expertise
-          ? Array.isArray(mentorDetails.expertise)
-            ? mentorDetails.expertise
-            : mentorDetails.expertise
-                .split(",")
-                .map((e) => e.trim())
-                .filter(Boolean)
-          : [],
-      yearsOfExperience:
-        type === "mentor"
-          ? typeof mentorDetails?.yearsOfExperience === "number"
-            ? mentorDetails.yearsOfExperience
-            : parseInt(mentorDetails?.yearsOfExperience || "0")
-          : null,
-      availableForMentorship:
-        type === "mentor"
-          ? Boolean(mentorDetails?.availableForMentorship)
-          : false,
-      certifications:
-        type === "mentor" && mentorDetails?.certifications
-          ? Array.isArray(mentorDetails.certifications)
-            ? mentorDetails.certifications
-            : mentorDetails.certifications
-                .split(",")
-                .map((c) => c.trim())
-                .filter(Boolean)
-          : [],
+      mentorExpertise: type === "mentor" && mentorDetails?.expertise ? 
+        (Array.isArray(mentorDetails.expertise) ? mentorDetails.expertise : mentorDetails.expertise.split(",").map(e => e.trim()).filter(Boolean)) 
+        : [],
+      yearsOfExperience: type === "mentor" ? 
+        (typeof mentorDetails?.yearsOfExperience === 'number' ? mentorDetails.yearsOfExperience : 
+         parseInt(mentorDetails?.yearsOfExperience || "0")) 
+        : null,
+      availableForMentorship: type === "mentor" ? Boolean(mentorDetails?.availableForMentorship) : false,
+      certifications: type === "mentor" && mentorDetails?.certifications ? 
+        (Array.isArray(mentorDetails.certifications) ? mentorDetails.certifications : 
+         mentorDetails.certifications.split(",").map(c => c.trim()).filter(Boolean)) 
+        : [],
     };
 
     console.log("Processed update data:", updateData);
@@ -182,14 +158,15 @@ export async function updateProfile(formData) {
 
     revalidatePath("/profile");
     return { success: true, data: updatedProfile };
+
   } catch (error) {
     console.error("Profile update error:", error);
-
+    
     if (error instanceof ValidationError) {
       // Return validation errors in a structured way
       throw new Error(JSON.stringify(error.errors));
     }
-
+    
     throw new Error(`Failed to update profile: ${error.message}`);
   }
 }

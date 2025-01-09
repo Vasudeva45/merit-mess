@@ -24,7 +24,7 @@ model Form {
   specialization  String            @default("")
   FormSubmissions FormSubmissions[]
   projectGroup    ProjectGroup?
-  status    String    @default("draft")
+  status          String            @default("draft")
 }
 
 model FormSubmissions {
@@ -55,10 +55,10 @@ model Profile {
   ongoing_projects Json[]           @default([])
   
   // New mentor-specific fields
-  mentorExpertise  String[]         @default([]) // Areas of expertise for mentors
-  yearsOfExperience Int?             // Professional experience years
+  mentorExpertise  String[]         @default([])
+  yearsOfExperience Int?
   availableForMentorship Boolean     @default(false)
-  mentoredProjects  Json[]           @default([]) // Projects mentored
+  mentoredProjects  Json[]          @default([])
   mentorRating      Float?           @default(0.0)
   certifications    String[]         @default([])
 
@@ -69,7 +69,6 @@ model Profile {
   assignedTasks   Task[]            @relation("AssignedTo")
   comments        Comment[]
 
-  // Relation for mentored projects/teams
   mentoredGroups   ProjectGroup[]   @relation("MentorToProjectGroups")
   
   mentorRequests       MentorshipRequest[] @relation("MentorRequests")
@@ -79,6 +78,9 @@ model Profile {
   ratedMentors      MentorRating[] @relation("RaterProfiles")
   
   createdMeetings Meeting[]
+  
+  // Added the opposite relation field for MentorVerification
+  verification    MentorVerification?
 }
 
 model MentorshipRequest {
@@ -86,7 +88,7 @@ model MentorshipRequest {
   mentorId       String
   projectGroupId Int
   requesterId    String
-  status         String       @default("pending") // pending, accepted, rejected, mentor_invited
+  status         String       @default("pending")
   message        String?      @db.Text
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -120,7 +122,7 @@ model ProjectGroup {
   updatedAt    DateTime      @updatedAt
   ownerId      String
   mentor       Profile?      @relation(fields: [mentorId], references: [userId], name: "MentorToProjectGroups")
-  mentorId     String?       // Optional field to link to mentor
+  mentorId     String?
   members      GroupMember[]
   form         Form          @relation(fields: [formId], references: [id])
   tasks        Task[]
@@ -146,7 +148,6 @@ model Task {
   id          Int          @id @default(autoincrement())
   title       String
   description String?      @db.Text
-  // Update the status field comment to include new statuses
   status      String       @default("todo")
   priority    String       @default("medium")
   dueDate     DateTime?
@@ -192,7 +193,7 @@ model ProjectFile {
   uploadedAt  DateTime     @default(now())
   groupId     Int
   group       ProjectGroup @relation(fields: [groupId], references: [id])
-  isResource  Boolean      @default(false)  // New field to distinguish resources
+  isResource  Boolean      @default(false)
 }
 
 model Meeting {
@@ -205,5 +206,21 @@ model Meeting {
   createdBy     String
   group         ProjectGroup @relation(fields: [groupId], references: [id])
   creatorProfile Profile     @relation(fields: [createdBy], references: [userId])
-  status        String       @default("scheduled") // scheduled, completed, cancelled
+  status        String       @default("scheduled")
+}
+
+model MentorVerification {
+  id                Int       @id @default(autoincrement())
+  userId            String    @unique
+  profile           Profile   @relation(fields: [userId], references: [userId])
+  status            String    @default("pending")
+  githubUsername    String?
+  githubVerified    Boolean   @default(false)
+  githubData        Json?
+  documentsVerified Boolean   @default(false)
+  documents         Json?     @default("[]")
+  identityVerified  Boolean   @default(false)
+  verificationDate  DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }

@@ -89,7 +89,7 @@ const LayoutContent = ({ children }: { children: React.ReactNode }) => {
   const handleTypeSelect = async (formData: any) => {
     try {
       await updateProfile(formData);
-      setShowTypeModal(false);
+      setShowTypeModal(false); // Close the modal after successful profile update
 
       // Force a router refresh and navigate to profile page
       router.refresh();
@@ -113,6 +113,7 @@ const LayoutContent = ({ children }: { children: React.ReactNode }) => {
     >
       <ProfileTypeModal
         isOpen={showTypeModal}
+        onClose={() => setShowTypeModal(false)} // Use showTypeModal state instead of isModalOpen
         onTypeSelect={handleTypeSelect}
         user={user}
       />

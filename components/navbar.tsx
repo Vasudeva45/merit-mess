@@ -18,6 +18,7 @@ import {
   Trophy,
   Menu,
   BarChart,
+  ChevronDown,
 } from "lucide-react";
 import {
   NavigationMenu,
@@ -45,8 +46,12 @@ const NavLink = ({ href, children, className }) => {
     <Link
       href={href}
       className={cn(
-        "group inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50",
-        isActive ? "bg-accent text-accent-foreground" : "text-foreground",
+        "group relative flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+        "hover:bg-primary hover:text-primary-foreground",
+        "active:scale-95",
+        isActive
+          ? "bg-primary/10 text-primary before:absolute before:bottom-0 before:left-0 before:h-1 before:w-full before:bg-primary before:rounded-t-lg"
+          : "text-foreground",
         className
       )}
     >
@@ -58,6 +63,16 @@ const NavLink = ({ href, children, className }) => {
 const Navbar = () => {
   const { user, isLoading } = useUser();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -74,18 +89,27 @@ const Navbar = () => {
     }
   }, [user, isLoading]);
 
-  // If not logged in, only show the landing page nav
   if (!user && !isLoading) {
     return (
-      <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div
+        className={cn(
+          "sticky top-0 z-50 w-full transition-all duration-200",
+          isScrolled
+            ? "border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+            : "bg-transparent"
+        )}
+      >
         <div className="flex h-16 items-center px-4 md:px-8">
-          <Link href="/" className="flex items-center gap-2 mr-8">
-            <Rocket className="h-6 w-6 text-primary" />
-            <span className="font-bold text-lg">MeritMess</span>
+          <Link href="/" className="flex items-center gap-3 mr-8 group">
+            <Rocket className="h-6 w-6 text-primary transition-transform group-hover:rotate-12" />
+            <span className="font-bold text-lg bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              MeritMess
+            </span>
           </Link>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-3">
             <SignupButton />
             <LoginButton />
+            <div className="h-6 w-px bg-border" />
             <ThemeToggle />
           </div>
         </div>
@@ -94,24 +118,28 @@ const Navbar = () => {
   }
 
   return (
-    <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div
+      className={cn(
+        "sticky top-0 z-50 w-full transition-all duration-200",
+        isScrolled
+          ? "border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+          : "bg-transparent"
+      )}
+    >
       <div className="flex h-16 items-center px-4 md:px-8">
         {/* Logo and Brand */}
-        <Link href="/" className="flex items-center gap-2 mr-8">
-          <Rocket className="h-6 w-6 text-primary" />
-          <span className="font-bold text-lg hidden md:inline-block">
+        <Link href="/" className="flex items-center gap-3 mr-8 group">
+          <Rocket className="h-6 w-6 text-primary transition-transform group-hover:rotate-12" />
+          <span className="font-bold text-lg hidden md:block bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
             MeritMess
           </span>
         </Link>
 
         {/* Main Navigation - Desktop */}
         <NavigationMenu className="hidden md:flex">
-          <NavigationMenuList className="">
+          <NavigationMenuList className="space-x-1">
             <NavigationMenuItem>
-              <NavLink
-                href="/project/new"
-                fallback={<StatsCards loading={true} data={null} />}
-              >
+              <NavLink href="/project/new">
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Start Project
               </NavLink>
@@ -151,37 +179,56 @@ const Navbar = () => {
         <div className="md:hidden flex-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="hover:bg-primary/10"
+              >
                 <Menu className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuContent align="start" className="w-64 p-2">
               <DropdownMenuItem asChild>
-                <Link href="/project/new" className="flex items-center">
+                <Link
+                  href="/project/new"
+                  className="flex items-center p-2 rounded-lg"
+                >
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Start Project
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/mentors" className="flex items-center">
+                <Link
+                  href="/mentors"
+                  className="flex items-center p-2 rounded-lg"
+                >
                   <GraduationCap className="mr-2 h-4 w-4" />
                   Find Mentor
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/dashboard" className="flex items-center">
+                <Link
+                  href="/dashboard"
+                  className="flex items-center p-2 rounded-lg"
+                >
                   <BarChart className="mr-2 h-4 w-4" />
                   My Dashboard
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/achievements" className="flex items-center">
+                <Link
+                  href="/achievements"
+                  className="flex items-center p-2 rounded-lg"
+                >
                   <Trophy className="mr-2 h-4 w-4" />
                   Achievements
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/project-invites" className="flex items-center">
+                <Link
+                  href="/project-invites"
+                  className="flex items-center p-2 rounded-lg"
+                >
                   <Users className="mr-2 h-4 w-4" />
                   Projects
                 </Link>
@@ -195,48 +242,61 @@ const Navbar = () => {
           {user && !isLoading && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative rounded-full p-1">
+                <Button
+                  variant="ghost"
+                  className="relative flex items-center gap-2 rounded-lg pl-3 pr-2 hover:bg-primary/10"
+                >
                   {profile?.imageUrl ? (
                     <img
                       src={profile.imageUrl}
                       alt={profile.name}
-                      className="h-8 w-8 rounded-full object-cover"
+                      className="h-8 w-8 rounded-full object-cover ring-2 ring-primary/20"
                     />
                   ) : (
                     <UserCircle className="h-6 w-6" />
                   )}
+                  <span className="hidden md:block text-sm font-medium">
+                    {profile?.name || user.name || "User"}
+                  </span>
+                  <ChevronDown className="h-4 w-4 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <div className="flex items-center justify-start gap-2 p-2">
+              <DropdownMenuContent align="end" className="w-64 p-2">
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium">{user.name || "User"}</p>
+                    <p className="text-sm font-medium">
+                      {profile?.name || user.name || "User"}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {user.email}
                     </p>
                   </div>
                 </div>
-                <DropdownMenuSeparator />
+                <DropdownMenuSeparator className="my-2" />
                 <DropdownMenuItem asChild>
-                  <Link href="/profile" className="flex items-center">
+                  <Link
+                    href="/profile"
+                    className="flex items-center p-2 rounded-lg"
+                  >
                     <UserCircle className="mr-2 h-4 w-4" />
                     My Profile
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/project-invites" className="flex items-center">
+                  <Link
+                    href="/project-invites"
+                    className="flex items-center p-2 rounded-lg"
+                  >
                     <Laptop className="mr-2 h-4 w-4" />
                     My Projects
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <LogoutButton />
-                </DropdownMenuItem>
+                <DropdownMenuSeparator className="my-2" />
+                <LogoutButton />
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-
+          <div className="h-6 w-px bg-border" />
           <ThemeToggle />
         </div>
       </div>

@@ -39,12 +39,10 @@ export async function getProfile() {
       const defaultProfile: ProfileFormData = {
         name: user.name || "",
         imageUrl: "",
-        type: "student",
         email: user.email || "",
         skills: [],
         achievements: [],
         ongoing_projects: [],
-        // Optional mentor details can be omitted for default student profile
       };
 
       const validation = profileSchema.safeParse(defaultProfile);
@@ -57,7 +55,7 @@ export async function getProfile() {
         data: {
           userId: user.sub,
           ...defaultProfile,
-          mentorExpertise: [], // Ensure these match Prisma schema
+          mentorExpertise: [],
           mentoredProjects: [],
           certifications: [],
         },
@@ -80,9 +78,7 @@ export async function getProfile() {
   }
 }
 
-export async function updateProfile(
-  formData: z.infer<typeof profileUpdateSchema>
-) {
+export async function updateProfile(formData) {
   try {
     const session = await getSession();
     const user = session?.user;
@@ -91,10 +87,24 @@ export async function updateProfile(
       throw new Error("User not found");
     }
 
-    const validation = profileUpdateSchema.safeParse(formData);
+    // Log the incoming form data for debugging
+    console.log("Received form data:", formData);
+
+    // Ensure email is properly formatted before validation
+    const sanitizedFormData = {
+      ...formData,
+      email: formData.email?.trim() || user.email, // Use auth0 email as fallback
+    };
+
+    // Validate the data
+    const validation = profileUpdateSchema.safeParse(sanitizedFormData);
 
     if (!validation.success) {
-      throw new Error(JSON.stringify(validation.error.flatten().fieldErrors));
+      console.error(
+        "Validation errors:",
+        validation.error.flatten().fieldErrors
+      );
+      throw new ValidationError(validation.error.flatten().fieldErrors);
     }
 
     // Separate mentor-specific fields
@@ -106,24 +116,50 @@ export async function updateProfile(
       ...otherProfileData
     } = validation.data;
 
+    // Prepare update data with proper type checking
     const updateData = {
       ...otherProfileData,
       type,
-      skills: skills || [],
-      ongoing_projects: ongoing_projects as any,
-      mentorExpertise: type === "mentor" ? mentorDetails?.expertise || [] : [],
+      skills: Array.isArray(skills)
+        ? skills
+        : (skills || "")
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean),
+      ongoing_projects: Array.isArray(ongoing_projects) ? ongoing_projects : [],
+      mentorExpertise:
+        type === "mentor" && mentorDetails?.expertise
+          ? Array.isArray(mentorDetails.expertise)
+            ? mentorDetails.expertise
+            : mentorDetails.expertise
+                .split(",")
+                .map((e) => e.trim())
+                .filter(Boolean)
+          : [],
       yearsOfExperience:
-        type === "mentor" ? mentorDetails?.yearsOfExperience : null,
+        type === "mentor"
+          ? typeof mentorDetails?.yearsOfExperience === "number"
+            ? mentorDetails.yearsOfExperience
+            : parseInt(mentorDetails?.yearsOfExperience || "0")
+          : null,
       availableForMentorship:
         type === "mentor"
-          ? mentorDetails?.availableForMentorship ?? false
+          ? Boolean(mentorDetails?.availableForMentorship)
           : false,
       certifications:
-        type === "mentor" ? mentorDetails?.certifications || [] : [],
+        type === "mentor" && mentorDetails?.certifications
+          ? Array.isArray(mentorDetails.certifications)
+            ? mentorDetails.certifications
+            : mentorDetails.certifications
+                .split(",")
+                .map((c) => c.trim())
+                .filter(Boolean)
+          : [],
     };
 
-    console.log("Profile update data:", updateData);
+    console.log("Processed update data:", updateData);
 
+    // Update the profile
     const updatedProfile = await prisma.profile.upsert({
       where: { userId: user.sub },
       update: updateData,
@@ -135,22 +171,26 @@ export async function updateProfile(
 
     console.log("Profile updated successfully:", updatedProfile);
 
-    // Send profile update email notification
+    // Send email notification
     try {
-      console.log("Attempting to send email notification...");
       await EmailService.sendProfileUpdateNotification(updatedProfile);
       console.log("Email notification sent successfully");
     } catch (emailError) {
-      console.error("Detailed email error:", emailError);
-      console.error("Email error stack:", (emailError as Error).stack);
+      console.error("Email notification error:", emailError);
+      // Don't throw here - email notification failure shouldn't block profile update
     }
 
     revalidatePath("/profile");
     return { success: true, data: updatedProfile };
   } catch (error) {
     console.error("Profile update error:", error);
-    console.error("Error stack:", (error as Error).stack);
-    throw new Error(`Failed to update profile: ${(error as Error).message}`);
+
+    if (error instanceof ValidationError) {
+      // Return validation errors in a structured way
+      throw new Error(JSON.stringify(error.errors));
+    }
+
+    throw new Error(`Failed to update profile: ${error.message}`);
   }
 }
 

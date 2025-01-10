@@ -14,8 +14,138 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Plus, X, Loader2, Check } from "lucide-react";
-import { Profile, Project } from "./types";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { EditMentorDetails } from "./EditMentorDetails";
+import { Profile, Project } from "./types";
+
+const GithubVerificationModal = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  pendingProfile,
+}) => {
+  const [githubUsername, setGithubUsername] = useState("");
+  const [verificationStep, setVerificationStep] = useState("initial");
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [error, setError] = useState(null);
+  const [verificationCode, setVerificationCode] = useState(null);
+
+  const initiateVerification = async () => {
+    try {
+      setIsVerifying(true);
+      setError(null);
+
+      const response = await fetch("/api/verification/github", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          githubUsername,
+          action: "initiate",
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to initiate verification");
+      }
+
+      setVerificationCode(result.verificationCode);
+      setVerificationStep("verifying");
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const completeVerification = async () => {
+    try {
+      setIsVerifying(true);
+      setError(null);
+
+      const response = await fetch("/api/verification/github", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          githubUsername,
+          profileData: pendingProfile,
+          action: "verify",
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Verification failed");
+      }
+
+      if (result.verified) {
+        onSuccess(result);
+      } else {
+        throw new Error("Verification requirements not met");
+      }
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">
+            GitHub Verification Required
+          </h2>
+          {verificationStep === "initial" ? (
+            <>
+              <Input
+                placeholder="Enter your GitHub username"
+                value={githubUsername}
+                onChange={(e) => setGithubUsername(e.target.value)}
+              />
+              <Button
+                onClick={initiateVerification}
+                disabled={isVerifying || !githubUsername}
+                className="w-full"
+              >
+                {isVerifying ? "Checking..." : "Start Verification"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="bg-secondary p-4 rounded-md">
+                <p className="font-medium">Verification Code:</p>
+                <p className="text-lg font-mono mt-2">{verificationCode}</p>
+              </div>
+              <div className="space-y-2">
+                <p>Please complete ONE of the following:</p>
+                <ul className="list-disc pl-6 space-y-2">
+                  <li>
+                    Create a public repository named 'verification-repo' with
+                    this code
+                  </li>
+                  <li>Create a public gist containing this code</li>
+                  <li>Add this code to your GitHub bio</li>
+                </ul>
+              </div>
+              <Button
+                onClick={completeVerification}
+                disabled={isVerifying}
+                className="w-full"
+              >
+                {isVerifying ? "Verifying..." : "Complete Verification"}
+              </Button>
+            </>
+          )}
+          {error && <div className="text-red-500 text-sm">{error}</div>}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 interface EditProfileProps {
   formData: Profile;
@@ -32,12 +162,41 @@ export const EditProfile: React.FC<EditProfileProps> = ({
   hasChanges,
   onSave,
 }) => {
+  const [showGithubVerification, setShowGithubVerification] = useState(false);
   const [newSkill, setNewSkill] = useState("");
   const [newProject, setNewProject] = useState<Project>({
     name: "",
     description: "",
     status: "planning",
   });
+
+  const handleTypeChange = (value: "student" | "mentor") => {
+    if (value === "mentor") {
+      setShowGithubVerification(true);
+    } else {
+      setFormData({
+        ...formData,
+        type: value,
+        mentorDetails: undefined,
+      });
+    }
+  };
+
+  const handleGithubVerificationSuccess = (result) => {
+    setShowGithubVerification(false);
+    setFormData({
+      ...formData,
+      type: "mentor",
+      mentorDetails: {
+        expertise: [],
+        yearsOfExperience: undefined,
+        availableForMentorship: true,
+        certifications: [],
+      },
+      githubUsername: result.githubUsername,
+      githubVerified: true,
+    });
+  };
 
   const addSkill = () => {
     if (newSkill.trim() && !formData.skills.includes(newSkill.trim())) {
@@ -79,6 +238,9 @@ export const EditProfile: React.FC<EditProfileProps> = ({
     });
   };
 
+  // Check if type is already set (not empty string or undefined)
+  const isTypeSet = Boolean(formData.type);
+
   return (
     <>
       <Card>
@@ -119,21 +281,8 @@ export const EditProfile: React.FC<EditProfileProps> = ({
                 <label className="text-sm font-medium mb-1 block">Type</label>
                 <Select
                   value={formData.type}
-                  onValueChange={(value: "student" | "mentor") =>
-                    setFormData({
-                      ...formData,
-                      type: value,
-                      mentorDetails:
-                        value === "mentor"
-                          ? {
-                              expertise: [],
-                              yearsOfExperience: undefined,
-                              availableForMentorship: false,
-                              certifications: [],
-                            }
-                          : undefined,
-                    })
-                  }
+                  onValueChange={handleTypeChange}
+                  disabled={isTypeSet}
                 >
                   <SelectTrigger className="mb-4">
                     <SelectValue />
@@ -143,8 +292,6 @@ export const EditProfile: React.FC<EditProfileProps> = ({
                     <SelectItem value="mentor">Mentor</SelectItem>
                   </SelectContent>
                 </Select>
-
-                {/* Additional fields... */}
               </div>
 
               <div>
@@ -287,6 +434,19 @@ export const EditProfile: React.FC<EditProfileProps> = ({
       {formData.type === "mentor" && (
         <EditMentorDetails formData={formData} setFormData={setFormData} />
       )}
+
+      <GithubVerificationModal
+        isOpen={showGithubVerification}
+        onClose={() => {
+          setShowGithubVerification(false);
+          setFormData({
+            ...formData,
+            type: "student",
+          });
+        }}
+        onSuccess={handleGithubVerificationSuccess}
+        pendingProfile={formData}
+      />
     </>
   );
 };

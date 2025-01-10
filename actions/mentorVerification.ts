@@ -2,7 +2,6 @@ import { getSession } from "@auth0/nextjs-auth0";
 import prisma from "@/lib/prisma";
 import { GitHubVerification } from "@/lib/verification/github";
 import { DocumentVerification } from "@/lib/verification/document";
-import { IdentityVerification } from "@/lib/verification/identity";
 import type {
   VerificationStatus,
   VerificationRequest,

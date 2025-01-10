@@ -264,7 +264,9 @@ const Navbar = () => {
               <DropdownMenuContent align="end" className="w-64 p-2">
                 <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium">{user.name || "User"}</p>
+                    <p className="text-sm font-medium">
+                      {profile?.name || user.name || "User"}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {user.email}
                     </p>

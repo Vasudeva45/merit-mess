@@ -7,9 +7,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/navbar";
 import { Providers } from "./providers";
-import { Toaster } from "@/components/ui/toaster";
 import ProfileTypeModal from "@/app/profile/components/ProfileTypeModal";
 import { getProfile, updateProfile } from "@/actions/profile";
+import CustomToast, { ToastMessage } from "@/components/Toast/custom-toast";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -29,9 +29,40 @@ const LayoutContent = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [lastCheckTime, setLastCheckTime] = useState(Date.now());
+  const [isOnline, setIsOnline] = useState(true);
+  const [toast, setToast] = useState<{
+    message: ToastMessage;
+    type: "success" | "error";
+  } | null>(null);
 
-  // Function to check profile type
+  const showToast = (
+    title: string,
+    details: string,
+    type: "success" | "error"
+  ) => {
+    setToast({
+      message: { title, details },
+      type,
+    });
+  };
+
+  const checkInternetConnection = () => {
+    return window.navigator.onLine;
+  };
+
   const checkProfile = async () => {
+    if (!checkInternetConnection()) {
+      setIsOnline(false);
+      showToast(
+        "No Internet Connection",
+        "Please check your internet connection and try again.",
+        "error"
+      );
+      return;
+    }
+
+    setIsOnline(true);
+
     if (user && !isLoading) {
       try {
         const profile = await getProfile();
@@ -42,22 +73,47 @@ const LayoutContent = ({ children }: { children: React.ReactNode }) => {
         }
       } catch (error) {
         console.error("Error checking profile:", error);
-        setShowTypeModal(true);
+        // Only show modal if we have internet connection
+        if (checkInternetConnection()) {
+          setShowTypeModal(true);
+        }
       }
     }
   };
 
-  // Initial check on mount and when user/loading state changes
   useEffect(() => {
     checkProfile();
+
+    // Add event listeners for online/offline status
+    const handleOnline = () => {
+      setIsOnline(true);
+      showToast("Connected", "Internet connection restored", "success");
+      checkProfile();
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      setShowTypeModal(false);
+      showToast(
+        "No Internet Connection",
+        "Please check your internet connection and try again.",
+        "error"
+      );
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
   }, [user, isLoading]);
 
-  // Periodic check every 30 seconds when the user is logged in
   useEffect(() => {
-    if (!user || isLoading) return;
+    if (!user || isLoading || !isOnline) return;
 
     const intervalId = setInterval(() => {
-      // Only check if the modal isn't already showing
       if (!showTypeModal) {
         checkProfile();
       }
@@ -65,15 +121,13 @@ const LayoutContent = ({ children }: { children: React.ReactNode }) => {
     }, 30000);
 
     return () => clearInterval(intervalId);
-  }, [user, isLoading, showTypeModal]);
+  }, [user, isLoading, showTypeModal, isOnline]);
 
-  // Check profile when the tab becomes visible
   useEffect(() => {
-    if (!user || isLoading) return;
+    if (!user || isLoading || !isOnline) return;
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        // Only check if it's been more than 30 seconds since the last check
         if (Date.now() - lastCheckTime > 30000) {
           checkProfile();
           setLastCheckTime(Date.now());
@@ -84,18 +138,30 @@ const LayoutContent = ({ children }: { children: React.ReactNode }) => {
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () =>
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [user, isLoading, lastCheckTime]);
+  }, [user, isLoading, lastCheckTime, isOnline]);
 
   const handleTypeSelect = async (formData: any) => {
+    if (!isOnline) {
+      showToast(
+        "No Internet Connection",
+        "Please check your internet connection and try again.",
+        "error"
+      );
+      return;
+    }
+
     try {
       await updateProfile(formData);
-      setShowTypeModal(false); // Close the modal after successful profile update
+      setShowTypeModal(false);
+      showToast(
+        "Profile Updated",
+        "Your profile type has been successfully updated.",
+        "success"
+      );
 
-      // Force a router refresh and navigate to profile page
       router.refresh();
       router.push("/profile?welcome=true");
 
-      // Ensure the navigation takes effect
       setTimeout(() => {
         if (window.location.pathname !== "/profile") {
           window.location.href = "/profile?welcome=true";
@@ -103,6 +169,11 @@ const LayoutContent = ({ children }: { children: React.ReactNode }) => {
       }, 1000);
     } catch (error) {
       console.error("Error updating profile:", error);
+      showToast(
+        "Update Failed",
+        "Failed to update profile type. Please try again.",
+        "error"
+      );
       throw error;
     }
   };
@@ -111,14 +182,23 @@ const LayoutContent = ({ children }: { children: React.ReactNode }) => {
     <div
       className={`mx-auto min-h-screen justify-center w-full ${geistSans.variable} ${geistMono.variable} antialiased`}
     >
-      <ProfileTypeModal
-        isOpen={showTypeModal}
-        onClose={() => setShowTypeModal(false)} // Use showTypeModal state instead of isModalOpen
-        onTypeSelect={handleTypeSelect}
-        user={user}
-      />
+      {isOnline && (
+        <ProfileTypeModal
+          isOpen={showTypeModal}
+          onClose={() => setShowTypeModal(false)}
+          onTypeSelect={handleTypeSelect}
+          user={user}
+        />
+      )}
       {user && !isLoading && <Navbar />}
       <div className={`${user ? "p-8" : "p-0"}`}>{children}</div>
+      {toast && (
+        <CustomToast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 };
@@ -132,10 +212,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <Providers>
-          <LayoutContent>
-            {children}
-            <Toaster />
-          </LayoutContent>
+          <LayoutContent>{children}</LayoutContent>
         </Providers>
       </body>
     </html>

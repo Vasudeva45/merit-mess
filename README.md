@@ -3,33 +3,65 @@ Welcome to the repository for the Project Management Real-Time Website. This app
 ----------------------------------------------------------------
 Table of Contents:-
 
-Home Page,
-Find Mentor for Project,
-My Dashboard,
-Achievements,
-Projects,
-Technologies Used,
-Installation and Setup,
-Future Enhancements,
-Contributing,
-License,
+Home Page
+
+
+Find Mentor for Project
+
+
+My Dashboard
+
+
+Achievements
+
+
+Projects
+
+
+Technologies Used
+
+
+Installation and Setup
+
+
+Future Enhancements
+
+
+Contributing
+
+
+License
+
+
 ----------------------------------------------------------------
+
+
 Home Page
 ![image](https://github.com/user-attachments/assets/fa831c06-2dcb-4801-b567-79a832be1ff2)
 
+
 The Home Page serves as the central hub for the website. It includes:
+
 
 A welcoming interface with an overview of the platform's features.
 User login and signup options.
+
+
 Quick access to other sections like "Find Mentor" and "My Dashboard."
 Features:
 
+
 Real-time updates on project stats.
 Interactive navigation bar for smooth access to all pages.
+
+
 ----------------------------------------------------------------
+
+
 Find Mentor for Project
 
 ![image](https://github.com/user-attachments/assets/64838a47-37b3-4cdf-8baf-a7ce4c607fa3)
+
 
 The Find Mentor for Project page is where users can:
 
@@ -69,7 +101,11 @@ Sharing options to showcase achievements on social media platforms.
 Features:
 
 Interactive and customizable achievement displays.
+
+
 Downloadable certificates for completed projects
+
+
 ---------------------------------------------------------------------
 
 Projects

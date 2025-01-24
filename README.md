@@ -1,3 +1,6 @@
+This is a collabrative project made by me and my friend so it is being forked from the parent repo
+
+
 ![image](https://github.com/user-attachments/assets/ce1f5094-d9de-4469-8b7d-8713391445d6)
 Welcome to the repository for the Project Management Real-Time Website. This application provides an efficient platform to manage projects, connect with mentors, track achievements, and monitor your project progress, all in real time.
 ----------------------------------------------------------------

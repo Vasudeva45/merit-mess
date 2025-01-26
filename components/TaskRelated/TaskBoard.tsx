@@ -45,7 +45,7 @@ const TASK_STATUS = {
   },
 };
 
-const TaskBoard = ({ tasks = [], members = [], groupId, onUpdate }) => {
+const TaskBoard = ({ tasks = [], members = [], groupId }) => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [taskData, setTaskData] = useState(tasks);
   const [isLoading, setIsLoading] = useState(false);
@@ -59,7 +59,6 @@ const TaskBoard = ({ tasks = [], members = [], groupId, onUpdate }) => {
   });
 
   const showToast = (message: ToastMessage, type: "success" | "error") => {
-    // Only show toast if TaskEditRoom is not open
     if (!activeTaskEdit) {
       setToast({ message, type });
     }
@@ -98,8 +97,6 @@ const TaskBoard = ({ tasks = [], members = [], groupId, onUpdate }) => {
         },
         "success"
       );
-
-      onUpdate();
     } catch (error) {
       console.error("Failed to create task:", error);
       showToast(
@@ -114,8 +111,13 @@ const TaskBoard = ({ tasks = [], members = [], groupId, onUpdate }) => {
     }
   };
 
+  const handleTaskUpdate = (updatedTask) => {
+    setTaskData((prevTasks) =>
+      prevTasks.map((task) => (task.id === updatedTask.id ? updatedTask : task))
+    );
+  };
+
   const handleStatusChange = async (taskId, newStatus) => {
-    // Validate taskId
     if (!taskId) {
       console.error("Task ID is required for status update");
       showToast(
@@ -128,11 +130,9 @@ const TaskBoard = ({ tasks = [], members = [], groupId, onUpdate }) => {
       return;
     }
 
-    // If TaskEditRoom is open, just update the data without showing toast
     if (activeTaskEdit) {
       try {
         await updateTaskStatus(taskId, newStatus);
-        onUpdate();
       } catch (error) {
         console.error("Failed to update task status:", error);
       }
@@ -166,8 +166,6 @@ const TaskBoard = ({ tasks = [], members = [], groupId, onUpdate }) => {
         },
         "success"
       );
-
-      onUpdate();
     } catch (error) {
       console.error("Failed to update task status:", error);
       showToast(
@@ -178,7 +176,6 @@ const TaskBoard = ({ tasks = [], members = [], groupId, onUpdate }) => {
         "error"
       );
 
-      // Revert the local state on error
       setTaskData((prevTasks) =>
         prevTasks.map((task) =>
           task.id === taskId ? { ...task, status: task.status } : task
@@ -202,7 +199,6 @@ const TaskBoard = ({ tasks = [], members = [], groupId, onUpdate }) => {
 
   return (
     <div className="space-y-4 p-4 sm:p-6">
-      {/* Only render toast if TaskEditRoom is not open */}
       {toast && !activeTaskEdit && (
         <CustomToast
           message={toast.message}
@@ -326,6 +322,7 @@ const TaskBoard = ({ tasks = [], members = [], groupId, onUpdate }) => {
                     onStatusChange={handleStatusChange}
                     members={members}
                     setActiveTaskEdit={setActiveTaskEdit}
+                    onTaskUpdate={handleTaskUpdate}
                   />
                 ))}
               </div>
@@ -337,11 +334,16 @@ const TaskBoard = ({ tasks = [], members = [], groupId, onUpdate }) => {
   );
 };
 
-const TaskCard = ({ task, onStatusChange, members, setActiveTaskEdit }) => {
+const TaskCard = ({
+  task,
+  onStatusChange,
+  members,
+  setActiveTaskEdit,
+  onTaskUpdate,
+}) => {
   const [isEditOpen, setIsEditOpen] = useState(false);
 
   useEffect(() => {
-    // Update activeTaskEdit when edit dialog opens/closes
     setActiveTaskEdit(isEditOpen ? task.id : null);
   }, [isEditOpen, task.id, setActiveTaskEdit]);
 
@@ -401,7 +403,7 @@ const TaskCard = ({ task, onStatusChange, members, setActiveTaskEdit }) => {
           setActiveTaskEdit(null);
         }}
         members={members}
-        onUpdate={onStatusChange}
+        onUpdate={onTaskUpdate}
       />
     </>
   );

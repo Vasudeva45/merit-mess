@@ -96,13 +96,14 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
   const handleUpdate = async (updateData) => {
     try {
       setLoading(true);
-      await updateTask(task.id, updateData);
-      onUpdate();
+      const updatedTask = await updateTask(task.id, updateData);
+      onUpdate(updatedTask); // Pass the updated task back to parent
       showToast(
         "Task Updated",
         `Successfully updated ${Object.keys(updateData).join(", ")}`,
         "success"
       );
+      return updatedTask;
     } catch (error) {
       console.error("Failed to update task:", error);
       showToast(
@@ -110,6 +111,7 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
         error.message || "Failed to update task",
         "error"
       );
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -118,44 +120,27 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
   const handleStatusChange = async (newStatus) => {
     setStatus(newStatus);
     try {
-      setLoading(true);
-      await updateTask(task.id, { status: newStatus });
-      onUpdate(task.id, newStatus);
-      showToast(
-        "Task Updated",
-        `Successfully updated status to ${TASK_STATUS[newStatus].label}`,
-        "success"
-      );
+      const updatedTask = await handleUpdate({ status: newStatus });
+      return updatedTask;
     } catch (error) {
-      console.error("Failed to update task:", error);
-      showToast(
-        "Update Failed",
-        error.message || "Failed to update task",
-        "error"
-      );
-    } finally {
-      setLoading(false);
+      // Revert status if update fails
+      setStatus(task.status);
     }
   };
 
   const handlePriorityChange = async (newPriority) => {
     setPriority(newPriority);
-    await handleUpdate({
-      priority: newPriority,
-    });
+    await handleUpdate({ priority: newPriority });
   };
 
   const handleDescriptionSave = async () => {
     setIsEditingDesc(false);
     await handleUpdate({ description });
-    setDescription(description);
   };
 
   const handleDateChange = async (newDate) => {
     setDate(newDate);
-    await handleUpdate({
-      dueDate: newDate,
-    });
+    await handleUpdate({ dueDate: newDate });
   };
 
   const handleAssigneesChange = async (userId) => {
@@ -164,9 +149,7 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
       : [...assignees, userId];
 
     setAssignees(newAssignees);
-    await handleUpdate({
-      assigneeIds: newAssignees,
-    });
+    await handleUpdate({ assigneeIds: newAssignees });
   };
 
   const handleCommentSubmit = async (e) => {
@@ -180,7 +163,7 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
         taskId: task.id,
       });
       setNewComment("");
-      onUpdate();
+      onUpdate(task); // Trigger update to refresh comments
       showToast(
         "Comment Added",
         "Your comment was successfully added to the task",

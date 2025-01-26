@@ -1,3 +1,175 @@
+This is a collabrative project made by me and my friend so it is being forked from the parent repo
+
+
+![image](https://github.com/user-attachments/assets/ce1f5094-d9de-4469-8b7d-8713391445d6)
+Welcome to the repository for the Project Management Real-Time Website. This application provides an efficient platform to manage projects, connect with mentors, track achievements, and monitor your project progress, all in real time.
+----------------------------------------------------------------
+Table of Contents:-
+
+Home Page
+
+
+Find Mentor for Project
+
+
+My Dashboard
+
+
+Achievements
+
+
+Projects
+
+
+Technologies Used
+
+
+Installation and Setup
+
+
+Future Enhancements
+
+
+Contributing
+
+
+License
+
+
+----------------------------------------------------------------
+
+
+Home Page
+![image](https://github.com/user-attachments/assets/fa831c06-2dcb-4801-b567-79a832be1ff2)
+
+
+The Home Page serves as the central hub for the website. It includes:
+
+
+A welcoming interface with an overview of the platform's features.
+User login and signup options.
+
+
+Quick access to other sections like "Find Mentor" and "My Dashboard."
+Features:
+
+
+Real-time updates on project stats.
+Interactive navigation bar for smooth access to all pages.
+
+
+----------------------------------------------------------------
+
+
+Find Mentor for Project
+
+![image](https://github.com/user-attachments/assets/64838a47-37b3-4cdf-8baf-a7ce4c607fa3)
+
+
+The Find Mentor for Project page is where users can:
+
+Search for mentors based on expertise, industry, or project requirements.
+View mentor profiles with their skills, experience, and availability.
+Send requests to mentors for collaboration or guidance.
+Features:
+
+Filter and search options.
+Real-time chat functionality for seamless communication.
+
+---------------------------------------------------------------
+
+My Dashboard
+![image](https://github.com/user-attachments/assets/c0454456-9cc7-4162-88a3-a93a5c7f6542)
+
+The My Dashboard is your personalized workspace, where you can:
+
+Track all your active and completed projects.
+View pending mentor requests and updates.
+Access important notifications related to your projects.
+Features:
+
+User-friendly interface for efficient project tracking.
+Integrated calendar for task deadlines and meetings.
+
+-------------------------------------------------------------
+
+Achievements
+![image](https://github.com/user-attachments/assets/344773fb-c91f-408f-ab10-1bcd779cada1)
+
+The Achievements page showcases:
+
+Awards, recognitions, and milestones achieved during your project journey.
+Visual representations like badges or certificates for your progress.
+Sharing options to showcase achievements on social media platforms.
+Features:
+
+Interactive and customizable achievement displays.
+
+
+Downloadable certificates for completed projects
+
+
+---------------------------------------------------------------------
+
+Projects
+![image](https://github.com/user-attachments/assets/92f2346a-622b-4716-8088-a1a1bc055127)
+![image](https://github.com/user-attachments/assets/8f2e05f5-7edf-45f0-a234-012731d56986)
+
+
+The Projects section allows users to:
+
+Create, update, and delete project details.
+Assign tasks, set deadlines, and track progress.
+Collaborate with team members in real time.
+Features:
+
+Integrated Kanban board for task management.
+Progress tracking with charts and reports.
+
+------------------------------------------------------------------------
+
+Technologies Used
+AI Writing Assistance: Gemini model for generating descriptions and text content.
+Frontend Framework: Next.js for building a fast and responsive user interface.
+UI Components: ShadCN for customizable and accessible design components.
+Database: PostgreSQL for efficient and reliable data storage.
+ORM: Prisma Studio for database management and visualization.
+
+-----------------------------------------------------------------------
+Future Enhancements
+AI Integration: Add an AI assistant to provide project suggestions and tips.
+Mobile App: Develop a mobile version for better accessibility.
+Advanced Analytics: Implement detailed project insights and performance metrics.
+Contributing
+We welcome contributions! If you’d like to contribute:
+
+Fork the repository.
+Create a new branch for your feature or bug fix.
+Commit your changes and open a pull request.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <<<<<<< HEAD
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 

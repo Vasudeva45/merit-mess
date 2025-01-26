@@ -35,27 +35,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import CustomToast, { ToastMessage } from "@/components/Toast/custom-toast";
 
 const ProjectFiles = ({ files, groupId, onUpdate }) => {
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [toastData, setToastData] = useState<{
-    message: { title: string; details: string };
-    type: "success" | "error";
-  } | null>(null);
+  const { toast } = useToast();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  const showToast = (
-    title: string,
-    details: string,
-    type: "success" | "error"
-  ) => {
-    setToastData({
-      message: { title, details },
-      type,
-    });
-  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -63,7 +48,11 @@ const ProjectFiles = ({ files, groupId, onUpdate }) => {
 
     // Check file size (5MB limit)
     if (file.size > 5 * 1024 * 1024) {
-      showToast("Upload Failed", "File size must be less than 5MB", "error");
+      toast({
+        title: "Error",
+        description: "File size must be less than 5MB",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -87,20 +76,19 @@ const ProjectFiles = ({ files, groupId, onUpdate }) => {
 
       const data = await response.json();
 
-      showToast(
-        "Upload Successful",
-        `${file.name} has been uploaded successfully`,
-        "success"
-      );
+      toast({
+        title: "Success",
+        description: "File uploaded successfully",
+      });
 
       onUpdate();
     } catch (error) {
       console.error("Failed to upload file:", error);
-      showToast(
-        "Upload Failed",
-        "An error occurred while uploading the file",
-        "error"
-      );
+      toast({
+        title: "Error",
+        description: "Failed to upload file",
+        variant: "destructive",
+      });
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -126,13 +114,16 @@ const ProjectFiles = ({ files, groupId, onUpdate }) => {
     try {
       const fullUrl = `${window.location.origin}/files/${viewUrl}`;
       await navigator.clipboard.writeText(fullUrl);
-      showToast(
-        "Link Copied",
-        "View URL has been copied to clipboard",
-        "success"
-      );
+      toast({
+        title: "Success",
+        description: "View URL copied to clipboard",
+      });
     } catch (error) {
-      showToast("Copy Failed", "Failed to copy URL to clipboard", "error");
+      toast({
+        title: "Error",
+        description: "Failed to copy URL",
+        variant: "destructive",
+      });
     }
   };
 
@@ -186,15 +177,6 @@ const ProjectFiles = ({ files, groupId, onUpdate }) => {
 
   return (
     <div className="space-y-4">
-      {toastData && (
-        <CustomToast
-          message={toastData.message}
-          type={toastData.type}
-          onClose={() => setToastData(null)}
-        />
-      )}
-
-      {/* Rest of the component JSX remains the same */}
       <div className="flex flex-col sm:flex-row justify-between items-center space-y-2 sm:space-y-0">
         <h2 className="text-xl sm:text-2xl font-bold">Project Files</h2>
         <div>

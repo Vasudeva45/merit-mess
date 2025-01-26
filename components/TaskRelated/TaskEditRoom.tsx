@@ -153,33 +153,38 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
   };
 
   const handleCommentSubmit = async (e) => {
-    e.preventDefault();
-    if (!newComment.trim()) return;
+  e.preventDefault();
+  if (!newComment.trim()) return;
 
-    try {
-      setLoading(true);
-      await addComment({
-        content: newComment,
-        taskId: task.id,
-      });
-      setNewComment("");
-      onUpdate(task); // Trigger update to refresh comments
-      showToast(
-        "Comment Added",
-        "Your comment was successfully added to the task",
-        "success"
-      );
-    } catch (error) {
-      console.error("Failed to add comment:", error);
-      showToast(
-        "Comment Failed",
-        error.message || "Failed to add comment",
-        "error"
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    setLoading(true);
+
+    // Assuming addComment is an API call or function that adds the comment.
+    const addedComment = await addComment({
+      content: newComment,
+      taskId: task.id,
+    });
+
+    // Directly update the task comments without waiting for a page refresh
+    onUpdate({
+      ...task,
+      comments: [...task.comments, addedComment],
+    });
+
+    // Clear the new comment input
+    setNewComment("");
+
+    // Show success toast
+    showToast("Comment Added", "Your comment was successfully added to the task", "success");
+  } catch (error) {
+    console.error("Failed to add comment:", error);
+    showToast("Comment Failed", error.message || "Failed to add comment", "error");
+  } finally {
+    setLoading(false);
+  }
+};
+
+  
 
   return (
     <>
@@ -247,58 +252,62 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
 
                 <Separator />
 
-                {/* Comments */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="h-5 w-5" />
-                    <h3 className="text-lg font-medium">Comments</h3>
-                  </div>
+               {/* Comments */}
+<div className="space-y-4">
+  {/* Header */}
+  <div className="flex items-center gap-2">
+    <MessageSquare className="h-5 w-5" />
+    <h3 className="text-lg font-medium">Comments</h3>
+  </div>
 
-                  <div className="space-y-4">
-                    {task?.comments?.map((comment, index) => (
-                      <Card key={index}>
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center">
-                              {comment.author.name.charAt(0)}
-                            </div>
-                            <div>
-                              <div className="font-medium">
-                                {comment.author.name}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {new Date(
-                                  comment.createdAt
-                                ).toLocaleDateString()}
-                              </div>
-                            </div>
-                          </div>
-                          <p className="text-sm">{comment.content}</p>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+  {/* Scrollable Comments Section */}
+  <div
+  className="space-y-4 max-h-40 overflow-y-auto p-2 border rounded-md custom-scrollbar"
+>
 
-                  <form onSubmit={handleCommentSubmit} className="flex gap-2">
-                    <Textarea
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Write a comment..."
-                      className="flex-1"
-                      disabled={loading}
-                    />
-                    <Button
-                      type="submit"
-                      disabled={loading || !newComment.trim()}
-                    >
-                      {loading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Send className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </form>
-                </div>
+    {task?.comments?.map((comment, index) => (
+      <Card key={index}>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center">
+              {comment.author.name.charAt(0)}
+            </div>
+            <div>
+              <div className="font-medium">{comment.author.name}</div>
+              <div className="text-xs text-gray-500">
+                {new Date(comment.createdAt).toLocaleDateString()}
+              </div>
+            </div>
+          </div>
+          <p className="text-sm">{comment.content}</p>
+        </CardContent>
+      </Card>
+    ))}
+  </div>
+
+  {/* New Comment Form */}
+  <form onSubmit={handleCommentSubmit} className="flex gap-2">
+    <Textarea
+      value={newComment}
+      onChange={(e) => setNewComment(e.target.value)}
+      placeholder="Write a comment..."
+      className="flex-1"
+      disabled={loading}
+    />
+    <Button
+      type="submit"
+      disabled={loading || !newComment.trim()}
+    >
+      {loading ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <Send className="h-4 w-4" />
+      )}
+    </Button>
+  </form>
+</div>
+
+
               </div>
 
               {/* Right Panel */}

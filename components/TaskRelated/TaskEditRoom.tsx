@@ -18,6 +18,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar as CalendarUI } from "@/components/ui/calendar";
+import CustomToast, { ToastMessage } from "@/components/Toast/custom-toast";
 import {
   AlertCircle,
   CheckCircle2,
@@ -74,15 +75,43 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
     task?.dueDate ? new Date(task.dueDate) : null
   );
 
+  const [toast, setToast] = useState<{
+    message: ToastMessage;
+    type: "success" | "error";
+  } | null>(null);
+
   const StatusIcon = TASK_STATUS[status]?.icon || Circle;
+
+  const showToast = (
+    title: string,
+    details: string,
+    type: "success" | "error"
+  ) => {
+    setToast({
+      message: { title, details },
+      type,
+    });
+  };
 
   const handleUpdate = async (updateData) => {
     try {
       setLoading(true);
-      await updateTask(task.id, updateData);
-      onUpdate();
+      const updatedTask = await updateTask(task.id, updateData);
+      onUpdate(updatedTask); // Pass the updated task back to parent
+      showToast(
+        "Task Updated",
+        `Successfully updated ${Object.keys(updateData).join(", ")}`,
+        "success"
+      );
+      return updatedTask;
     } catch (error) {
       console.error("Failed to update task:", error);
+      showToast(
+        "Update Failed",
+        error.message || "Failed to update task",
+        "error"
+      );
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -90,7 +119,13 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
 
   const handleStatusChange = async (newStatus) => {
     setStatus(newStatus);
-    await handleUpdate({ status: newStatus });
+    try {
+      const updatedTask = await handleUpdate({ status: newStatus });
+      return updatedTask;
+    } catch (error) {
+      // Revert status if update fails
+      setStatus(task.status);
+    }
   };
 
   const handlePriorityChange = async (newPriority) => {
@@ -101,8 +136,6 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
   const handleDescriptionSave = async () => {
     setIsEditingDesc(false);
     await handleUpdate({ description });
-    onUpdate();
-    setDescription(description);
   };
 
   const handleDateChange = async (newDate) => {
@@ -118,296 +151,327 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
     setAssignees(newAssignees);
     await handleUpdate({ assigneeIds: newAssignees });
   };
+  
 
   const handleCommentSubmit = async (e) => {
     e.preventDefault();
     if (!newComment.trim()) return;
-
+  
     try {
       setLoading(true);
-      await addComment({
+  
+      // Assuming addComment is an API call or function that adds the comment.
+      const addedComment = await addComment({
         content: newComment,
         taskId: task.id,
       });
+  
+      // Directly update the task comments without waiting for a page refresh
+      onUpdate({
+        ...task,
+        comments: [...task.comments, addedComment],
+      });
+  
+      // Clear the new comment input
       setNewComment("");
-      onUpdate();
+  
+      // Show success toast
+      showToast("Comment Added", "Your comment was successfully added to the task", "success");
     } catch (error) {
       console.error("Failed to add comment:", error);
+      showToast("Comment Failed", error.message || "Failed to add comment", "error");
     } finally {
       setLoading(false);
     }
   };
+  
+  
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-[90vh] p-0">
-        <div className="h-full flex flex-col">
-          {/* Header */}
-          <div className="p-6 border-b">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <StatusIcon
-                  className={`h-8 w-8 p-1.5 rounded-full ${TASK_STATUS[status].color}`}
-                />
-                <h2 className="text-2xl font-semibold">{task?.title}</h2>
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl h-[90vh] p-0">
+          <div className="h-full flex flex-col">
+            {/* Header */}
+            <div className="p-6 border-b">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <StatusIcon
+                    className={`h-8 w-8 p-1.5 rounded-full ${TASK_STATUS[status].color}`}
+                  />
+                  <h2 className="text-2xl font-semibold">{task?.title}</h2>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Main Content */}
-          <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
-            {/* Left Panel */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Description */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium">Description</h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      isEditingDesc
-                        ? handleDescriptionSave()
-                        : setIsEditingDesc(true)
-                    }
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : isEditingDesc ? (
-                      <Save className="h-4 w-4 mr-2" />
-                    ) : (
-                      <Edit2 className="h-4 w-4 mr-2" />
-                    )}
-                    {loading ? "Saving..." : isEditingDesc ? "Save" : "Edit"}
-                  </Button>
-                </div>
-                {isEditingDesc ? (
-                  <Textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="min-h-[200px]"
-                    placeholder="Add a detailed description..."
-                    disabled={loading}
-                  />
-                ) : (
-                  <div className="prose prose-sm max-w-none">
-                    {description || (
-                      <p className="text-gray-500 italic">
-                        No description provided
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <Separator />
-
-              {/* Comments */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  <h3 className="text-lg font-medium">Comments</h3>
-                </div>
-
+            {/* Main Content */}
+            <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
+              {/* Left Panel */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Description */}
                 <div className="space-y-4">
-                  {task?.comments?.map((comment, index) => (
-                    <Card key={index}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center">
-                            {comment.author.name.charAt(0)}
-                          </div>
-                          <div>
-                            <div className="font-medium">
-                              {comment.author.name}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {new Date(comment.createdAt).toLocaleDateString()}
-                            </div>
-                          </div>
-                        </div>
-                        <p className="text-sm">{comment.content}</p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-
-                <form onSubmit={handleCommentSubmit} className="flex gap-2">
-                  <Textarea
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Write a comment..."
-                    className="flex-1"
-                    disabled={loading}
-                  />
-                  <Button
-                    type="submit"
-                    disabled={loading || !newComment.trim()}
-                  >
-                    {loading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                  </Button>
-                </form>
-              </div>
-            </div>
-
-            {/* Right Panel */}
-            <div className="w-full md:w-80 border-t md:border-t-0 md:border-l p-6 space-y-6">
-              {/* Status */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Status</label>
-                <Select
-                  value={status}
-                  onValueChange={handleStatusChange}
-                  disabled={loading}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(TASK_STATUS).map(
-                      ([value, { label, icon: Icon }]) => (
-                        <SelectItem key={value} value={value}>
-                          <div className="flex items-center gap-2">
-                            <Icon
-                              className={`h-4 w-4 ${TASK_STATUS[value].color}`}
-                            />
-                            {label}
-                          </div>
-                        </SelectItem>
-                      )
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Priority */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Priority</label>
-                <Select
-                  value={priority}
-                  onValueChange={handlePriorityChange}
-                  disabled={loading}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(PRIORITY_OPTIONS).map(
-                      ([value, { label, color }]) => (
-                        <SelectItem key={value} value={value}>
-                          <div className="flex items-center gap-2">
-                            <Flag className={`h-4 w-4 ${color}`} />
-                            {label}
-                          </div>
-                        </SelectItem>
-                      )
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Assignees */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Assignees</label>
-                <Select
-                  value={assignees[assignees.length - 1] || ""}
-                  onValueChange={handleAssigneesChange}
-                  disabled={loading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Add assignee" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {members
-                      ?.filter((member) => member.role !== "mentor")
-                      .map((member) => (
-                        <SelectItem
-                          key={member.profile.userId}
-                          value={member.profile.userId}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <span>{member.profile.name}</span>
-                            {assignees.includes(member.profile.userId) && (
-                              <CheckCircle2 className="h-4 w-4 text-green-500" />
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-
-                <div className="mt-2 space-y-2">
-                  {task?.assignedTo
-                    ?.filter((user) => {
-                      return task.assignedTo.length > 1
-                        ? user.userId !== task.mentorId
-                        : true;
-                    })
-                    .map((user) => (
-                      <div
-                        key={user.userId}
-                        className="flex items-center gap-2 p-2 rounded-md bg-secondary/20"
-                      >
-                        <div className="h-6 w-6 bg-primary/10 rounded-full flex items-center justify-center text-sm">
-                          {user.name.charAt(0)}
-                        </div>
-                        <span className="text-sm">{user.name}</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="ml-auto p-0 h-6 w-6"
-                          onClick={() => handleAssigneesChange(user.userId)}
-                          disabled={loading}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                </div>
-              </div>
-
-              {/* Due Date */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Due Date</label>
-                <Popover>
-                  <PopoverTrigger asChild>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-medium">Description</h3>
                     <Button
-                      variant="outline"
-                      className="w-full justify-start text-left font-normal"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        isEditingDesc
+                          ? handleDescriptionSave()
+                          : setIsEditingDesc(true)
+                      }
                       disabled={loading}
                     >
-                      <Calendar className="h-4 w-4 mr-2" />
-                      {date ? format(date, "PPP") : "Set due date"}
+                      {loading ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : isEditingDesc ? (
+                        <Save className="h-4 w-4 mr-2" />
+                      ) : (
+                        <Edit2 className="h-4 w-4 mr-2" />
+                      )}
+                      {loading ? "Saving..." : isEditingDesc ? "Save" : "Edit"}
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="end">
-                    <CalendarUI
-                      mode="single"
-                      selected={date}
-                      onSelect={handleDateChange}
-                      initialFocus
+                  </div>
+                  {isEditingDesc ? (
+                    <Textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      className="min-h-[200px]"
+                      placeholder="Add a detailed description..."
+                      disabled={loading}
                     />
-                  </PopoverContent>
-                </Popover>
+                  ) : (
+                    <div className="prose prose-sm max-w-none">
+                      {description || (
+                        <p className="text-gray-500 italic">
+                          No description provided
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
+               {/* Comments */}
+<div className="space-y-4">
+  {/* Header */}
+  <div className="flex items-center gap-2">
+    <MessageSquare className="h-5 w-5" />
+    <h3 className="text-lg font-medium">Comments</h3>
+  </div>
+
+  {/* Scrollable Comments Section */}
+  <div
+    className="space-y-4 max-h-40 overflow-y-auto p-2 border rounded-md"
+    style={{ scrollbarWidth: "thin" }}
+  >
+    {task?.comments?.map((comment, index) => (
+      <Card key={index}>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center">
+              {comment.author.name.charAt(0)}
+            </div>
+            <div>
+              <div className="font-medium">{comment.author.name}</div>
+              <div className="text-xs text-gray-500">
+                {new Date(comment.createdAt).toLocaleDateString()}
+              </div>
+            </div>
+          </div>
+          <p className="text-sm">{comment.content}</p>
+        </CardContent>
+      </Card>
+    ))}
+  </div>
+
+  {/* New Comment Form */}
+  <form onSubmit={handleCommentSubmit} className="flex gap-2">
+    <Textarea
+      value={newComment}
+      onChange={(e) => setNewComment(e.target.value)}
+      placeholder="Write a comment..."
+      className="flex-1"
+      disabled={loading}
+    />
+    <Button
+      type="submit"
+      disabled={loading || !newComment.trim()}
+    >
+      {loading ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <Send className="h-4 w-4" />
+      )}
+    </Button>
+  </form>
+</div>
+
+
               </div>
 
-              {/* Created Date */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Created</label>
-                <div className="text-sm text-gray-600">
-                  {new Date(task?.createdAt).toLocaleDateString()}
+              {/* Right Panel */}
+              <div className="w-full md:w-80 border-t md:border-t-0 md:border-l p-6 space-y-6">
+                {/* Status */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Status</label>
+                  <Select
+                    value={status}
+                    onValueChange={handleStatusChange}
+                    disabled={loading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(TASK_STATUS).map(
+                        ([value, { label, icon: Icon }]) => (
+                          <SelectItem key={value} value={value}>
+                            <div className="flex items-center gap-2">
+                              <Icon
+                                className={`h-4 w-4 ${TASK_STATUS[value].color}`}
+                              />
+                              {label}
+                            </div>
+                          </SelectItem>
+                        )
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Priority */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Priority</label>
+                  <Select
+                    value={priority}
+                    onValueChange={handlePriorityChange}
+                    disabled={loading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(PRIORITY_OPTIONS).map(
+                        ([value, { label, color }]) => (
+                          <SelectItem key={value} value={value}>
+                            <div className="flex items-center gap-2">
+                              <Flag className={`h-4 w-4 ${color}`} />
+                              {label}
+                            </div>
+                          </SelectItem>
+                        )
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Assignees */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Assignees</label>
+                  <Select
+                    value={assignees[assignees.length - 1] || ""}
+                    onValueChange={handleAssigneesChange}
+                    disabled={loading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Add assignee" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {members
+                        ?.filter((member) => member.role !== "mentor")
+                        .map((member) => (
+                          <SelectItem
+                            key={member.profile.userId}
+                            value={member.profile.userId}
+                          >
+                            <div className="flex items-center justify-between w-full">
+                              <span>{member.profile.name}</span>
+                              {assignees.includes(member.profile.userId) && (
+                                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+
+                  <div className="mt-2 space-y-2">
+                    {task?.assignedTo
+                      ?.filter((user) => {
+                        return task.assignedTo.length > 1
+                          ? user.userId !== task.mentorId
+                          : true;
+                      })
+                      .map((user) => (
+                        <div
+                          key={user.userId}
+                          className="flex items-center gap-2 p-2 rounded-md bg-secondary/20"
+                        >
+                          <div className="h-6 w-6 bg-primary/10 rounded-full flex items-center justify-center text-sm">
+                            {user.name.charAt(0)}
+                          </div>
+                          <span className="text-sm">{user.name}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="ml-auto p-0 h-6 w-6"
+                            onClick={() => handleAssigneesChange(user.userId)}
+                            disabled={loading}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                {/* Due Date */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Due Date</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                        disabled={loading}
+                      >
+                        <Calendar className="h-4 w-4 mr-2" />
+                        {date ? format(date, "PPP") : "Set due date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <CalendarUI
+                        mode="single"
+                        selected={date}
+                        onSelect={handleDateChange}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Created Date */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Created</label>
+                  <div className="text-sm text-gray-600">
+                    {new Date(task?.createdAt).toLocaleDateString()}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+      {toast && (
+        <CustomToast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+    </>
   );
 };
 

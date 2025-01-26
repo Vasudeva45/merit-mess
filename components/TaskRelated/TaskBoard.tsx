@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { createTask, updateTaskStatus } from "@/actions/task";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -32,24 +32,37 @@ import {
   Zap,
 } from "lucide-react";
 import TaskEditRoom from "./TaskEditRoom";
+import CustomToast, { ToastMessage } from "../Toast/custom-toast";
 
 const TASK_STATUS = {
   todo: { label: "To Do", icon: Circle, color: "text-gray-500" },
   "in-progress": { label: "In Progress", icon: Timer, color: "text-blue-500" },
   review: { label: "Review", icon: AlertCircle, color: "text-yellow-500" },
-  completed: { label: "Completed", icon: CheckCircle2, color: "text-green-500" },
+  completed: {
+    label: "Completed",
+    icon: CheckCircle2,
+    color: "text-green-500",
+  },
 };
 
-const TaskBoard = ({ tasks = [], members = [], groupId, onUpdate }) => {
+const TaskBoard = ({ tasks = [], members = [], groupId }) => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [taskData, setTaskData] = useState(tasks);
   const [isLoading, setIsLoading] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [activeTaskEdit, setActiveTaskEdit] = useState(null);
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
     priority: "medium",
     assigneeIds: "",
   });
+
+  const showToast = (message: ToastMessage, type: "success" | "error") => {
+    if (!activeTaskEdit) {
+      setToast({ message, type });
+    }
+  };
 
   const handleCreateTask = async (e) => {
     e.preventDefault();
@@ -77,15 +90,55 @@ const TaskBoard = ({ tasks = [], members = [], groupId, onUpdate }) => {
         assigneeIds: "",
       });
 
-      onUpdate();
+      showToast(
+        {
+          title: "Task Created",
+          details: `Successfully created task: ${createdTask.title}`,
+        },
+        "success"
+      );
     } catch (error) {
       console.error("Failed to create task:", error);
+      showToast(
+        {
+          title: "Error Creating Task",
+          details: "Failed to create task. Please try again.",
+        },
+        "error"
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleTaskUpdate = (updatedTask) => {
+    setTaskData((prevTasks) =>
+      prevTasks.map((task) => (task.id === updatedTask.id ? updatedTask : task))
+    );
+  };
+
   const handleStatusChange = async (taskId, newStatus) => {
+    if (!taskId) {
+      console.error("Task ID is required for status update");
+      showToast(
+        {
+          title: "Error Updating Status",
+          details: "Invalid task ID. Please try again.",
+        },
+        "error"
+      );
+      return;
+    }
+
+    if (activeTaskEdit) {
+      try {
+        await updateTaskStatus(taskId, newStatus);
+      } catch (error) {
+        console.error("Failed to update task status:", error);
+      }
+      return;
+    }
+
     setTaskData((prevTasks) =>
       prevTasks.map((task) =>
         task.id === taskId ? { ...task, isLoading: true } : task
@@ -100,9 +153,34 @@ const TaskBoard = ({ tasks = [], members = [], groupId, onUpdate }) => {
       );
 
       await updateTaskStatus(taskId, newStatus);
-      onUpdate();
+
+      const updatedTask = taskData.find((task) => task.id === taskId);
+      if (!updatedTask) {
+        throw new Error("Task not found");
+      }
+
+      showToast(
+        {
+          title: "Status Updated",
+          details: `Task "${updatedTask.title}" moved to ${TASK_STATUS[newStatus].label}`,
+        },
+        "success"
+      );
     } catch (error) {
       console.error("Failed to update task status:", error);
+      showToast(
+        {
+          title: "Error Updating Status",
+          details: "Failed to update task status. Please try again.",
+        },
+        "error"
+      );
+
+      setTaskData((prevTasks) =>
+        prevTasks.map((task) =>
+          task.id === taskId ? { ...task, status: task.status } : task
+        )
+      );
     } finally {
       setTaskData((prevTasks) =>
         prevTasks.map((task) =>
@@ -121,6 +199,14 @@ const TaskBoard = ({ tasks = [], members = [], groupId, onUpdate }) => {
 
   return (
     <div className="space-y-4 p-4 sm:p-6">
+      {toast && !activeTaskEdit && (
+        <CustomToast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
         <h2 className="text-xl sm:text-2xl font-bold w-full">Tasks</h2>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -235,6 +321,8 @@ const TaskBoard = ({ tasks = [], members = [], groupId, onUpdate }) => {
                     task={task}
                     onStatusChange={handleStatusChange}
                     members={members}
+                    setActiveTaskEdit={setActiveTaskEdit}
+                    onTaskUpdate={handleTaskUpdate}
                   />
                 ))}
               </div>
@@ -246,8 +334,18 @@ const TaskBoard = ({ tasks = [], members = [], groupId, onUpdate }) => {
   );
 };
 
-const TaskCard = ({ task, onStatusChange, members }) => {
+const TaskCard = ({
+  task,
+  onStatusChange,
+  members,
+  setActiveTaskEdit,
+  onTaskUpdate,
+}) => {
   const [isEditOpen, setIsEditOpen] = useState(false);
+
+  useEffect(() => {
+    setActiveTaskEdit(isEditOpen ? task.id : null);
+  }, [isEditOpen, task.id, setActiveTaskEdit]);
 
   return (
     <>
@@ -300,9 +398,12 @@ const TaskCard = ({ task, onStatusChange, members }) => {
       <TaskEditRoom
         task={task}
         isOpen={isEditOpen}
-        onClose={() => setIsEditOpen(false)}
+        onClose={() => {
+          setIsEditOpen(false);
+          setActiveTaskEdit(null);
+        }}
         members={members}
-        onUpdate={onStatusChange}
+        onUpdate={onTaskUpdate}
       />
     </>
   );

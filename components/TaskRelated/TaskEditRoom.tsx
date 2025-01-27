@@ -61,11 +61,19 @@ const PRIORITY_OPTIONS = {
   high: { label: "High", color: "text-red-500 bg-red-100" },
 };
 
-const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
-  const [status, setStatus] = useState(task?.status || "todo");
+interface TaskEditRoomProps {
+  task: any;
+  isOpen: boolean;
+  onClose: () => void;
+  members: any[];
+  onUpdate: (updatedTask: any) => void;
+}
+
+const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, members, onUpdate }) => {
+  const [status, setStatus] = useState<keyof typeof TASK_STATUS>(task?.status || "todo");
   const [priority, setPriority] = useState(task?.priority || "medium");
   const [assignees, setAssignees] = useState(
-    task?.assignedTo?.map((user) => user.userId) || []
+    task?.assignedTo?.map((user: { userId: string }) => user.userId) || []
   );
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(false);
@@ -93,7 +101,7 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
     });
   };
 
-  const handleUpdate = async (updateData) => {
+  const handleUpdate = async (updateData: Partial<typeof task>) => {
     try {
       setLoading(true);
       const updatedTask = await updateTask(task.id, updateData);
@@ -108,7 +116,7 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
       console.error("Failed to update task:", error);
       showToast(
         "Update Failed",
-        error.message || "Failed to update task",
+        (error instanceof Error ? error.message : "Failed to update task"),
         "error"
       );
       throw error;

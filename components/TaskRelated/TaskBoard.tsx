@@ -30,6 +30,7 @@ import {
   Timer,
   Loader2,
   Zap,
+  Trash2,
 } from "lucide-react";
 import TaskEditRoom from "./TaskEditRoom";
 import CustomToast, { ToastMessage } from "../Toast/custom-toast";
@@ -45,12 +46,23 @@ const TASK_STATUS = {
   },
 };
 
-const TaskBoard = ({ tasks = [], members = [], groupId }) => {
+interface Task {
+  id: string;
+  title: string;
+  description: string;
+  priority: string;
+  assigneeIds: string[];
+  status: string;
+  isLoading?: boolean;
+  assignedTo?: { userId: string; name: string }[];
+}
+
+const TaskBoard = ({ tasks = [], members = [], groupId }: { tasks: Task[], members: any[], groupId: string }) => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [taskData, setTaskData] = useState(tasks);
   const [isLoading, setIsLoading] = useState(false);
-  const [toast, setToast] = useState(null);
-  const [activeTaskEdit, setActiveTaskEdit] = useState(null);
+  const [toast, setToast] = useState<{ message: ToastMessage; type: "success" | "error" } | null>(null);
+  const [activeTaskEdit, setActiveTaskEdit] = useState<string | null>(null);
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
@@ -64,7 +76,7 @@ const TaskBoard = ({ tasks = [], members = [], groupId }) => {
     }
   };
 
-  const handleCreateTask = async (e) => {
+  const handleCreateTask = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     try {
@@ -75,11 +87,17 @@ const TaskBoard = ({ tasks = [], members = [], groupId }) => {
         assigneeIds: newTask.assigneeIds ? [newTask.assigneeIds] : [],
       };
 
-      const createdTask = await createTask(groupId, taskData);
+      const createdTask = await createTask(Number(groupId), taskData);
 
       setTaskData((prevTasks) => [
         ...prevTasks,
-        { ...createdTask, status: "todo" },
+        { 
+          ...createdTask, 
+          id: createdTask.id.toString(), 
+          status: "todo", 
+          assigneeIds: createdTask.assignedTo ? createdTask.assignedTo.map(assignee => assignee.userId) : [], 
+          description: createdTask.description || ""
+        },
       ]);
 
       setIsCreateOpen(false);
@@ -89,7 +107,15 @@ const TaskBoard = ({ tasks = [], members = [], groupId }) => {
         priority: "medium",
         assigneeIds: "",
       });
-
+      const deleteTask = async (taskId: string) => {
+        try {
+          await deleteTask(taskId); // Replace with actual API call to delete task
+        } catch (error) {
+          console.error("Error deleting task:", error);
+          throw new Error("Failed to delete task");
+        }
+      };
+      
       showToast(
         {
           title: "Task Created",
@@ -111,13 +137,13 @@ const TaskBoard = ({ tasks = [], members = [], groupId }) => {
     }
   };
 
-  const handleTaskUpdate = (updatedTask) => {
+  const handleTaskUpdate = (updatedTask: Task) => {
     setTaskData((prevTasks) =>
       prevTasks.map((task) => (task.id === updatedTask.id ? updatedTask : task))
     );
   };
 
-  const handleStatusChange = async (taskId, newStatus) => {
+  const handleStatusChange = async (taskId: string, newStatus: keyof typeof TASK_STATUS) => {
     if (!taskId) {
       console.error("Task ID is required for status update");
       showToast(
@@ -132,7 +158,7 @@ const TaskBoard = ({ tasks = [], members = [], groupId }) => {
 
     if (activeTaskEdit) {
       try {
-        await updateTaskStatus(taskId, newStatus);
+        await updateTaskStatus(Number(taskId), newStatus);
       } catch (error) {
         console.error("Failed to update task status:", error);
       }
@@ -152,7 +178,7 @@ const TaskBoard = ({ tasks = [], members = [], groupId }) => {
         )
       );
 
-      await updateTaskStatus(taskId, newStatus);
+      await updateTaskStatus(Number(taskId), newStatus);
 
       const updatedTask = taskData.find((task) => task.id === taskId);
       if (!updatedTask) {
@@ -189,8 +215,22 @@ const TaskBoard = ({ tasks = [], members = [], groupId }) => {
       );
     }
   };
-
-  const groupedTasks = taskData.reduce((acc, task) => {
+  const handleDelete = async (taskId: string) => {
+    const taskToDelete = taskData.find(task => task.id === taskId);
+    const confirmed = window.confirm(`Are you sure you want to delete the task: "${taskToDelete?.title}"?`);
+    if (!confirmed) return;
+  
+    try {
+      await deleteTask(taskId);  // Call deleteTask function with task ID
+      onTaskUpdate(taskId);  // Update the task data by removing it from the list
+      alert(`Task "${taskToDelete?.title}" deleted successfully.`);
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      alert("Failed to delete task. Please try again.");
+    }
+  };
+  
+  const groupedTasks = taskData.reduce<Record<string, Task[]>>((acc, task) => {
     const status = task.status || "todo";
     if (!acc[status]) acc[status] = [];
     acc[status].push(task);
@@ -317,13 +357,15 @@ const TaskBoard = ({ tasks = [], members = [], groupId }) => {
               <div className="space-y-2">
                 {groupedTasks[status]?.map((task) => (
                   <TaskCard
-                    key={task.id}
-                    task={task}
-                    onStatusChange={handleStatusChange}
-                    members={members}
-                    setActiveTaskEdit={setActiveTaskEdit}
-                    onTaskUpdate={handleTaskUpdate}
-                  />
+                  key={task.id}
+                  task={task}
+                  onStatusChange={handleStatusChange}
+                  members={members}
+                  setActiveTaskEdit={setActiveTaskEdit}
+                  onTaskUpdate={handleTaskUpdate}
+                  onDeleteTask={handleDelete}  // Pass handleDelete function here
+                />
+                
                 ))}
               </div>
             </CardContent>
@@ -333,20 +375,28 @@ const TaskBoard = ({ tasks = [], members = [], groupId }) => {
     </div>
   );
 };
+interface TaskCardProps {
+  task: Task;
+  onStatusChange: (taskId: string, newStatus: keyof typeof TASK_STATUS) => void;
+  members: any[];
+  setActiveTaskEdit: (taskId: string | null) => void;
+  onTaskUpdate: (updatedTask: Task) => void;
+  onDeleteTask: (taskId: string) => void;
+}
 
-const TaskCard = ({
+const TaskCard: React.FC<TaskCardProps> = ({
   task,
   onStatusChange,
   members,
   setActiveTaskEdit,
   onTaskUpdate,
+  onDeleteTask, // Add the delete function
 }) => {
   const [isEditOpen, setIsEditOpen] = useState(false);
 
   useEffect(() => {
     setActiveTaskEdit(isEditOpen ? task.id : null);
   }, [isEditOpen, task.id, setActiveTaskEdit]);
-
   return (
     <>
       <Card
@@ -356,31 +406,43 @@ const TaskCard = ({
         <div className="space-y-2">
           <div className="flex flex-col sm:flex-row justify-between items-start space-y-2 sm:space-y-0">
             <h3 className="font-medium w-full sm:w-auto">{task.title}</h3>
-            <Select
-              value={task.status}
-              onValueChange={(value) => onStatusChange(task.id, value)}
-              disabled={task.isLoading}
-            >
-              <SelectTrigger className="h-6 w-full sm:w-24">
-                {task.isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <SelectValue />
-                )}
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(TASK_STATUS).map(([value, { label }]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center space-x-2">
+              <Select
+                value={task.status}
+                onValueChange={(value) => onStatusChange(task.id, value as keyof typeof TASK_STATUS)}
+                disabled={task.isLoading}
+              >
+                <SelectTrigger className="h-6 w-full sm:w-24">
+                  {task.isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <SelectValue />
+                  )}
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(TASK_STATUS).map(([value, { label }]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                className="p-1"
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent opening the task editor on trash click
+                  onDeleteTask(task.id); // Call the delete function
+                }}
+              >
+                <Trash2 className="h-1 w-1 text-red-500" />
+              </Button>
+            </div>
           </div>
           {task.description && (
             <p className="text-sm text-gray-500">{task.description}</p>
           )}
-          {task.assignedTo?.length > 0 && (
+          {task.assignedTo && task.assignedTo.length > 0 && (
             <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 text-xs text-gray-500">
               <span>Assigned to:</span>
               <div className="flex flex-wrap gap-1">
@@ -410,3 +472,11 @@ const TaskCard = ({
 };
 
 export default TaskBoard;
+
+function deleteTask(taskId: string) {
+  throw new Error("Function not implemented.");
+}
+function onTaskUpdate(taskId: string) {
+  throw new Error("Function not implemented.");
+}
+

@@ -61,11 +61,19 @@ const PRIORITY_OPTIONS = {
   high: { label: "High", color: "text-red-500 bg-red-100" },
 };
 
-const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
-  const [status, setStatus] = useState(task?.status || "todo");
+interface TaskEditRoomProps {
+  task: any;
+  isOpen: boolean;
+  onClose: () => void;
+  members: any[];
+  onUpdate: (updatedTask: any) => void;
+}
+
+const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, members, onUpdate }) => {
+  const [status, setStatus] = useState<keyof typeof TASK_STATUS>(task?.status || "todo");
   const [priority, setPriority] = useState(task?.priority || "medium");
   const [assignees, setAssignees] = useState(
-    task?.assignedTo?.map((user) => user.userId) || []
+    task?.assignedTo?.map((user: { userId: string }) => user.userId) || []
   );
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(false);
@@ -93,7 +101,7 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
     });
   };
 
-  const handleUpdate = async (updateData) => {
+  const handleUpdate = async (updateData: Partial<typeof task>) => {
     try {
       setLoading(true);
       const updatedTask = await updateTask(task.id, updateData);
@@ -108,7 +116,7 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
       console.error("Failed to update task:", error);
       showToast(
         "Update Failed",
-        error.message || "Failed to update task",
+        (error instanceof Error ? error.message : "Failed to update task"),
         "error"
       );
       throw error;
@@ -151,40 +159,39 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
     setAssignees(newAssignees);
     await handleUpdate({ assigneeIds: newAssignees });
   };
-  
 
   const handleCommentSubmit = async (e) => {
-    e.preventDefault();
-    if (!newComment.trim()) return;
-  
-    try {
-      setLoading(true);
-  
-      // Assuming addComment is an API call or function that adds the comment.
-      const addedComment = await addComment({
-        content: newComment,
-        taskId: task.id,
-      });
-  
-      // Directly update the task comments without waiting for a page refresh
-      onUpdate({
-        ...task,
-        comments: [...task.comments, addedComment],
-      });
-  
-      // Clear the new comment input
-      setNewComment("");
-  
-      // Show success toast
-      showToast("Comment Added", "Your comment was successfully added to the task", "success");
-    } catch (error) {
-      console.error("Failed to add comment:", error);
-      showToast("Comment Failed", error.message || "Failed to add comment", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-  
+  e.preventDefault();
+  if (!newComment.trim()) return;
+
+  try {
+    setLoading(true);
+
+    // Assuming addComment is an API call or function that adds the comment.
+    const addedComment = await addComment({
+      content: newComment,
+      taskId: task.id,
+    });
+
+    // Directly update the task comments without waiting for a page refresh
+    onUpdate({
+      ...task,
+      comments: [...task.comments, addedComment],
+    });
+
+    // Clear the new comment input
+    setNewComment("");
+
+    // Show success toast
+    showToast("Comment Added", "Your comment was successfully added to the task", "success");
+  } catch (error) {
+    console.error("Failed to add comment:", error);
+    showToast("Comment Failed", error.message || "Failed to add comment", "error");
+  } finally {
+    setLoading(false);
+  }
+};
+
   
 
   return (
@@ -263,9 +270,9 @@ const TaskEditRoom = ({ task, isOpen, onClose, members, onUpdate }) => {
 
   {/* Scrollable Comments Section */}
   <div
-    className="space-y-4 max-h-40 overflow-y-auto p-2 border rounded-md"
-    style={{ scrollbarWidth: "thin" }}
-  >
+  className="space-y-4 max-h-40 overflow-y-auto p-2 border rounded-md custom-scrollbar"
+>
+
     {task?.comments?.map((comment, index) => (
       <Card key={index}>
         <CardContent className="p-4">

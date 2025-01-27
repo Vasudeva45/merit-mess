@@ -125,7 +125,7 @@ const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, memb
     }
   };
 
-  const handleStatusChange = async (newStatus) => {
+  const handleStatusChange = async (newStatus: keyof typeof TASK_STATUS) => {
     setStatus(newStatus);
     try {
       const updatedTask = await handleUpdate({ status: newStatus });
@@ -136,7 +136,7 @@ const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, memb
     }
   };
 
-  const handlePriorityChange = async (newPriority) => {
+  const handlePriorityChange = async (newPriority: keyof typeof PRIORITY_OPTIONS) => {
     setPriority(newPriority);
     await handleUpdate({ priority: newPriority });
   };
@@ -146,21 +146,21 @@ const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, memb
     await handleUpdate({ description });
   };
 
-  const handleDateChange = async (newDate) => {
-    setDate(newDate);
+  const handleDateChange = async (newDate: Date | undefined) => {
+    setDate(newDate || null);
     await handleUpdate({ dueDate: newDate });
   };
 
-  const handleAssigneesChange = async (userId) => {
+  const handleAssigneesChange = async (userId: string) => {
     const newAssignees = assignees.includes(userId)
-      ? assignees.filter((id) => id !== userId)
+      ? assignees.filter((id: string) => id !== userId)
       : [...assignees, userId];
 
     setAssignees(newAssignees);
     await handleUpdate({ assigneeIds: newAssignees });
   };
 
-  const handleCommentSubmit = async (e) => {
+  const handleCommentSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
   e.preventDefault();
   if (!newComment.trim()) return;
 
@@ -186,7 +186,7 @@ const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, memb
     showToast("Comment Added", "Your comment was successfully added to the task", "success");
   } catch (error) {
     console.error("Failed to add comment:", error);
-    showToast("Comment Failed", error.message || "Failed to add comment", "error");
+    showToast("Comment Failed", (error instanceof Error ? error.message : "Failed to add comment"), "error");
   } finally {
     setLoading(false);
   }
@@ -273,7 +273,7 @@ const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, memb
   className="space-y-4 max-h-40 overflow-y-auto p-2 border rounded-md custom-scrollbar"
 >
 
-    {task?.comments?.map((comment, index) => (
+    {task?.comments?.map((comment: { author: { name: string }; createdAt: string; content: string }, index: number) => (
       <Card key={index}>
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-2">
@@ -337,7 +337,7 @@ const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, memb
                           <SelectItem key={value} value={value}>
                             <div className="flex items-center gap-2">
                               <Icon
-                                className={`h-4 w-4 ${TASK_STATUS[value].color}`}
+                                className={`h-4 w-4 ${TASK_STATUS[value as keyof typeof TASK_STATUS].color}`}
                               />
                               {label}
                             </div>
@@ -406,12 +406,12 @@ const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, memb
 
                   <div className="mt-2 space-y-2">
                     {task?.assignedTo
-                      ?.filter((user) => {
+                      ?.filter((user: { userId: string }) => {
                         return task.assignedTo.length > 1
                           ? user.userId !== task.mentorId
                           : true;
                       })
-                      .map((user) => (
+                      .map((user: { userId: string; name: string }) => (
                         <div
                           key={user.userId}
                           className="flex items-center gap-2 p-2 rounded-md bg-secondary/20"
@@ -451,7 +451,7 @@ const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, memb
                     <PopoverContent className="w-auto p-0" align="end">
                       <CalendarUI
                         mode="single"
-                        selected={date}
+                        selected={date || undefined}
                         onSelect={handleDateChange}
                         initialFocus
                       />

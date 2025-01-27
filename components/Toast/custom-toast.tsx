@@ -64,6 +64,7 @@ const CustomToast = ({ message, type, onClose }: ToastProps) => {
             </div>
           </div>
           <button
+            title="Close"
             onClick={onClose}
             className={`ml-4 inline-flex ${
               type === "success"

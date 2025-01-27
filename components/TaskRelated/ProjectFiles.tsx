@@ -36,9 +36,31 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const ProjectFiles = ({ files, groupId, onUpdate }) => {
+interface ProjectFilesProps {
+  files: Array<{
+    id: string;
+    name: string;
+    type: string;
+    size: number;
+    uploadedAt: string;
+    url: string;
+    viewUrl: string;
+  }>;
+  groupId: number;
+  onUpdate: () => void;
+}
+
+const ProjectFiles: React.FC<ProjectFilesProps> = ({ files, groupId, onUpdate }) => {
   const [uploading, setUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFile, setSelectedFile] = useState<null | {
+    id: string;
+    name: string;
+    type: string;
+    size: number;
+    uploadedAt: string;
+    url: string;
+    viewUrl: string;
+  }>(null);
   const { toast } = useToast();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -136,7 +158,7 @@ const ProjectFiles = ({ files, groupId, onUpdate }) => {
     );
   };
 
-  const renderFilePreview = (file) => {
+  const renderFilePreview = (file: { id: string; name: string; type: string; size: number; uploadedAt: string; url: string; viewUrl: string }) => {
     if (file.type.startsWith("image/")) {
       return (
         <img
@@ -233,7 +255,7 @@ const ProjectFiles = ({ files, groupId, onUpdate }) => {
                   <TableCell>
                     <div className="flex space-x-2">
                       <Button variant="ghost" size="sm" asChild>
-                        <a href={file.url} download>
+                        <a href={file.url} download title={`Download ${file.name}`}>
                           <Download className="h-4 w-4" />
                         </a>
                       </Button>

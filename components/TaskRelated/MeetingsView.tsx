@@ -4,8 +4,25 @@ import { Button } from "@/components/ui/button";
 import { formatDistance } from "date-fns";
 import { ExternalLink } from "lucide-react";
 
-export default function MeetingsView({ meetings, groupId, onUpdate }) {
-  const handleJoinMeeting = (meetLink) => {
+interface Meeting {
+  id: string;
+  title: string;
+  description: string;
+  scheduledFor: string;
+  creatorProfile: {
+    name: string;
+  };
+  meetLink?: string;
+}
+
+interface MeetingsViewProps {
+  meetings: Meeting[];
+  groupId: string;
+  onUpdate: () => void;
+}
+
+export default function MeetingsView({ meetings, groupId, onUpdate }: MeetingsViewProps) {
+  const handleJoinMeeting = (meetLink: string) => {
     // Ensure the link is a valid external URL
     const validUrl = meetLink.startsWith('http') ? meetLink : `https://${meetLink}`;
     window.open(validUrl, '_blank', 'noopener,noreferrer');

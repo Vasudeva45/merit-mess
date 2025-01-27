@@ -2,14 +2,27 @@ import { Button } from "@/components/ui/button";
 import { ExternalLink, FileText, Link as LinkIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-export default function ResourcesView({ resources, groupId, onUpdate }) {
-  const handleOpenResource = (resource) => {
+interface Resource {
+  type: string;
+  url?: string;
+  description?: string;
+  name: string;
+}
+
+interface ResourcesViewProps {
+  resources: Resource[];
+  groupId: string;
+  onUpdate: () => void;
+}
+
+export default function ResourcesView({ resources, groupId, onUpdate }: ResourcesViewProps) {
+  const handleOpenResource = (resource: Resource) => {
     // Handle different resource types
     switch(resource.type) {
       case 'link':
-        const validUrl = resource.url.startsWith('http') 
+        const validUrl = resource.url && resource.url.startsWith('http') 
           ? resource.url 
-          : `https://${resource.url}`;
+          : `https://${resource.url || ''}`;
         window.open(validUrl, '_blank', 'noopener,noreferrer');
         break;
       case 'credentials':
@@ -21,7 +34,7 @@ export default function ResourcesView({ resources, groupId, onUpdate }) {
     }
   };
 
-  const renderResourceIcon = (type) => {
+  const renderResourceIcon = (type: string) => {
     switch(type) {
       case 'link': return <LinkIcon className="h-5 w-5" />;
       case 'credentials': return <FileText className="h-5 w-5" />;
@@ -37,14 +50,15 @@ export default function ResourcesView({ resources, groupId, onUpdate }) {
       ) : (
         resources.map((resource, index) => {
           // Safely parse description, with fallback
-          let details = {};
+          let details: Resource = { type: '', description: '', url: '', name: resource.name };
           try {
             details = JSON.parse(resource.description || '{}');
           } catch (error) {
             details = {
               type: 'unknown',
               description: 'Invalid resource details',
-              url: ''
+              url: '',
+              name: resource.name
             };
           }
           

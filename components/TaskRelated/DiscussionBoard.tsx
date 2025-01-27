@@ -18,8 +18,35 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { getPusherClient } from "@/lib/pusher";
+import Pusher, { Channel } from "pusher-js";
 
-const DiscussionBoard = ({
+
+interface Discussion {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  comments?: Comment[];
+}
+
+interface Comment {
+  id: string;
+  content: string;
+  createdAt: string;
+  author: {
+    name: string;
+    sub: string;
+  };
+  isPending?: boolean;
+}
+
+interface DiscussionBoardProps {
+  discussions: Discussion[];
+  groupId: number;
+  onUpdate: () => void;
+}
+
+const DiscussionBoard: React.FC<DiscussionBoardProps> = ({
   discussions: initialDiscussions,
   groupId,
   onUpdate,
@@ -32,14 +59,15 @@ const DiscussionBoard = ({
     content: "",
   });
   const [commentText, setCommentText] = useState("");
-  const [activeDiscussion, setActiveDiscussion] = useState(null);
+  const [activeDiscussion, setActiveDiscussion] = useState<Discussion | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const messagesEndRef = useRef(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [isTyping, setIsTyping] = useState(false);
-  const typingTimeoutRef = useRef(null);
-  const pusherClientRef = useRef(null);
-  const channelRef = useRef(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  
+  const pusherClientRef = useRef<Pusher | null>(null);
+  const channelRef = useRef<Channel | null>(null);
 
   const generateTempId = () => `temp-${Date.now()}-${Math.random()}`;
 
@@ -82,7 +110,7 @@ const DiscussionBoard = ({
     channelRef.current = pusherClientRef.current.subscribe(channelName);
 
     // Handle new comments
-    channelRef.current.bind("new-comment", (newComment) => {
+    channelRef.current?.bind("new-comment", (newComment: Comment) => {
       if (newComment.author?.sub !== user?.sub) {
         setDiscussions((prev) =>
           prev.map((discussion) => {
@@ -100,7 +128,7 @@ const DiscussionBoard = ({
     });
 
     // Handle typing indicators
-    channelRef.current.bind("typing", (data) => {
+    channelRef.current.bind("typing", (data: { userId: string }) => {
       if (data.userId !== user?.sub) {
         setIsTyping(true);
         clearTimeout(typingTimeoutRef.current);
@@ -112,7 +140,7 @@ const DiscussionBoard = ({
       clearTimeout(typingTimeoutRef.current);
       if (channelRef.current) {
         channelRef.current.unbind_all();
-        pusherClientRef.current.unsubscribe(channelName);
+        pusherClientRef.current?.unsubscribe(channelName);
       }
     };
   }, [activeDiscussion, user?.sub]);
@@ -125,7 +153,7 @@ const DiscussionBoard = ({
     scrollToBottom();
   }, [activeDiscussion?.comments]);
 
-  const handleCreateDiscussion = async (e) => {
+  const handleCreateDiscussion = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (isSubmitting) return;
 
@@ -136,6 +164,7 @@ const DiscussionBoard = ({
         ...prev,
         {
           ...createdDiscussion,
+          id: createdDiscussion.id.toString(),
           comments: [],
           createdAt: new Date().toISOString(),
         },
@@ -150,7 +179,7 @@ const DiscussionBoard = ({
     }
   };
 
-  const handleAddComment = async (discussionId) => {
+  const handleAddComment = async (discussionId: string) => {
     if (!commentText.trim() || !channelRef.current) return;
 
     const tempId = generateTempId();
@@ -160,7 +189,7 @@ const DiscussionBoard = ({
       createdAt: new Date().toISOString(),
       author: {
         name: user?.name || "You",
-        sub: user?.sub,
+        sub: user?.sub || "",
       },
       isPending: true,
     };
@@ -168,7 +197,7 @@ const DiscussionBoard = ({
     // Update UI immediately with optimistic comment
     setDiscussions((prev) =>
       prev.map((discussion) => {
-        if (discussion.id === discussionId) {
+        if (discussion.id === discussionId.toString()) {
           return {
             ...discussion,
             comments: [...(discussion.comments || []), optimisticComment],
@@ -184,18 +213,28 @@ const DiscussionBoard = ({
     try {
       const savedComment = await addComment({
         content: optimisticComment.content,
-        discussionId,
+        discussionId: parseInt(discussionId, 10),
       });
 
       // Update discussions with the saved comment
       setDiscussions((prev) =>
         prev.map((discussion) => {
           if (discussion.id === discussionId) {
+            const formattedComment: Comment = {
+              ...savedComment,
+              id: savedComment.id.toString(),
+              createdAt: savedComment.createdAt.toISOString(),
+              author: {
+                name: user?.name || "You",
+                sub: user?.sub || "",
+              },
+              isPending: false,
+            };
             return {
               ...discussion,
-              comments: discussion.comments.map((comment) =>
+              comments: (discussion.comments || []).map((comment) =>
                 comment.id === tempId
-                  ? { ...savedComment, isPending: false }
+                  ? formattedComment
                   : comment
               ),
             };
@@ -211,7 +250,7 @@ const DiscussionBoard = ({
           if (discussion.id === discussionId) {
             return {
               ...discussion,
-              comments: discussion.comments.filter(
+              comments: (discussion.comments || []).filter(
                 (comment) => comment.id !== tempId
               ),
             };
@@ -230,10 +269,12 @@ const DiscussionBoard = ({
     }
   };
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleAddComment(activeDiscussion.id);
+      if (activeDiscussion) {
+        handleAddComment(activeDiscussion.id);
+      }
     } else {
       handleTyping();
     }
@@ -243,7 +284,7 @@ const DiscussionBoard = ({
     discussion.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const renderComment = (comment, index) => (
+  const renderComment = (comment: Comment, index: number) => (
     <div key={comment.id || index} className="flex items-start gap-2 mb-4">
       <Avatar className="w-8 h-8">
         <AvatarImage

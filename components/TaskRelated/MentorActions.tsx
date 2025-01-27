@@ -13,10 +13,16 @@ import { Calendar } from "@/components/ui/calendar";
 import { scheduleMeeting, shareResource } from "@/actions/task";
 import { toast } from "sonner";
 
-export default function MentorActions({ groupId, onUpdate, tasks }) {
+interface MentorActionsProps {
+  groupId: string;
+  onUpdate?: () => void;
+  tasks: any[];
+}
+
+export default function MentorActions({ groupId, onUpdate, tasks }: MentorActionsProps) {
   const [meetingDialogOpen, setMeetingDialogOpen] = useState(false);
   const [resourceDialogOpen, setResourceDialogOpen] = useState(false);
-  const [meetingDate, setMeetingDate] = useState(null);
+  const [meetingDate, setMeetingDate] = useState<Date | undefined>(undefined);
   const [meetingTitle, setMeetingTitle] = useState("");
   const [meetingDesc, setMeetingDesc] = useState("");
   const [meetingLink, setMeetingLink] = useState("");

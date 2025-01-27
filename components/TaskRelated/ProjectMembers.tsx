@@ -10,15 +10,29 @@ import {
 import { Crown, Mail, Building, MapPin, UserCheck } from "lucide-react";
 import { getProfilesByIds } from "@/actions/profile";
 
-const ProjectMembers = ({ members }) => {
-  const [profiles, setProfiles] = useState({});
+interface Member {
+  id: string;
+  userId: string;
+  role: string;
+  status: string;
+  profile: {
+    name: string;
+  };
+}
+
+interface ProjectMembersProps {
+  members: Member[];
+}
+
+const ProjectMembers: React.FC<ProjectMembersProps> = ({ members }) => {
+  const [profiles, setProfiles] = useState<Record<string, any>>({});
 
   useEffect(() => {
     const fetchProfiles = async () => {
       try {
         const userIds = [...new Set(members.map((member) => member.userId))];
         const fetchedProfiles = await getProfilesByIds(userIds);
-        const profileMap = fetchedProfiles.reduce((acc, profile) => {
+        const profileMap = fetchedProfiles.reduce((acc: Record<string, any>, profile) => {
           acc[profile.userId] = profile;
           return acc;
         }, {});
@@ -32,7 +46,7 @@ const ProjectMembers = ({ members }) => {
   }, [members]);
 
   // Deduplicate members based on userId and prioritize roles
-  const dedupedMembers = members.reduce((acc, member) => {
+  const dedupedMembers = members.reduce((acc: Member[], member) => {
     const existingMemberIndex = acc.findIndex(
       (m) => m.userId === member.userId
     );
@@ -116,7 +130,7 @@ const ProjectMembers = ({ members }) => {
                     )}
                     <Badge
                       variant={
-                        member.status === "accepted" ? "success" : "secondary"
+                        member.status === "accepted" ? "default" : "secondary"
                       }
                       className="mb-1 sm:mb-0"
                     >
@@ -147,7 +161,7 @@ const ProjectMembers = ({ members }) => {
                   )}
                   {profile?.skills?.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {profile.skills.map((skill) => (
+                      {profile.skills.map((skill: string) => (
                         <Badge key={skill} variant="secondary">
                           {skill}
                         </Badge>

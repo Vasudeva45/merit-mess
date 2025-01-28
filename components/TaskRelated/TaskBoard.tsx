@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { createTask, updateTaskStatus } from "@/actions/task";
+import { createTask, updateTaskStatus, deleteTask } from "@/actions/task";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -10,6 +10,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -57,11 +67,22 @@ interface Task {
   assignedTo?: { userId: string; name: string }[];
 }
 
-const TaskBoard = ({ tasks = [], members = [], groupId }: { tasks: Task[], members: any[], groupId: string }) => {
+const TaskBoard = ({
+  tasks = [],
+  members = [],
+  groupId,
+}: {
+  tasks: Task[];
+  members: any[];
+  groupId: string;
+}) => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [taskData, setTaskData] = useState(tasks);
   const [isLoading, setIsLoading] = useState(false);
-  const [toast, setToast] = useState<{ message: ToastMessage; type: "success" | "error" } | null>(null);
+  const [toast, setToast] = useState<{
+    message: ToastMessage;
+    type: "success" | "error";
+  } | null>(null);
   const [activeTaskEdit, setActiveTaskEdit] = useState<string | null>(null);
   const [newTask, setNewTask] = useState({
     title: "",
@@ -91,12 +112,14 @@ const TaskBoard = ({ tasks = [], members = [], groupId }: { tasks: Task[], membe
 
       setTaskData((prevTasks) => [
         ...prevTasks,
-        { 
-          ...createdTask, 
-          id: createdTask.id.toString(), 
-          status: "todo", 
-          assigneeIds: createdTask.assignedTo ? createdTask.assignedTo.map(assignee => assignee.userId) : [], 
-          description: createdTask.description || ""
+        {
+          ...createdTask,
+          id: createdTask.id.toString(),
+          status: "todo",
+          assigneeIds: createdTask.assignedTo
+            ? createdTask.assignedTo.map((assignee) => assignee.userId)
+            : [],
+          description: createdTask.description || "",
         },
       ]);
 
@@ -109,13 +132,13 @@ const TaskBoard = ({ tasks = [], members = [], groupId }: { tasks: Task[], membe
       });
       const deleteTask = async (taskId: string) => {
         try {
-          await deleteTask(taskId); // Replace with actual API call to delete task
+          await deleteTask(taskId);
         } catch (error) {
           console.error("Error deleting task:", error);
           throw new Error("Failed to delete task");
         }
       };
-      
+
       showToast(
         {
           title: "Task Created",
@@ -143,7 +166,10 @@ const TaskBoard = ({ tasks = [], members = [], groupId }: { tasks: Task[], membe
     );
   };
 
-  const handleStatusChange = async (taskId: string, newStatus: keyof typeof TASK_STATUS) => {
+  const handleStatusChange = async (
+    taskId: string,
+    newStatus: keyof typeof TASK_STATUS
+  ) => {
     if (!taskId) {
       console.error("Task ID is required for status update");
       showToast(
@@ -215,21 +241,40 @@ const TaskBoard = ({ tasks = [], members = [], groupId }: { tasks: Task[], membe
       );
     }
   };
+
   const handleDelete = async (taskId: string) => {
-    const taskToDelete = taskData.find(task => task.id === taskId);
-    const confirmed = window.confirm(`Are you sure you want to delete the task: "${taskToDelete?.title}"?`);
+    const taskToDelete = taskData.find((task) => task.id === taskId);
+    if (!taskToDelete) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete the task: "${taskToDelete.title}"?`
+    );
     if (!confirmed) return;
-  
+
     try {
-      await deleteTask(taskId);  // Call deleteTask function with task ID
-      onTaskUpdate(taskId);  // Update the task data by removing it from the list
-      alert(`Task "${taskToDelete?.title}" deleted successfully.`);
+      await deleteTask(Number(taskId));
+      setTaskData((prevTasks) =>
+        prevTasks.filter((task) => task.id !== taskId)
+      );
+      showToast(
+        {
+          title: "Task Deleted",
+          details: `Successfully deleted task: ${taskToDelete.title}`,
+        },
+        "success"
+      );
     } catch (error) {
       console.error("Error deleting task:", error);
-      alert("Failed to delete task. Please try again.");
+      showToast(
+        {
+          title: "Error Deleting Task",
+          details: "Failed to delete task. Please try again.",
+        },
+        "error"
+      );
     }
   };
-  
+
   const groupedTasks = taskData.reduce<Record<string, Task[]>>((acc, task) => {
     const status = task.status || "todo";
     if (!acc[status]) acc[status] = [];
@@ -357,15 +402,14 @@ const TaskBoard = ({ tasks = [], members = [], groupId }: { tasks: Task[], membe
               <div className="space-y-2">
                 {groupedTasks[status]?.map((task) => (
                   <TaskCard
-                  key={task.id}
-                  task={task}
-                  onStatusChange={handleStatusChange}
-                  members={members}
-                  setActiveTaskEdit={setActiveTaskEdit}
-                  onTaskUpdate={handleTaskUpdate}
-                  onDeleteTask={handleDelete}  // Pass handleDelete function here
-                />
-                
+                    key={task.id}
+                    task={task}
+                    onStatusChange={handleStatusChange}
+                    members={members}
+                    setActiveTaskEdit={setActiveTaskEdit}
+                    onTaskUpdate={handleTaskUpdate}
+                    onDeleteTask={handleDelete} // Pass handleDelete function here
+                  />
                 ))}
               </div>
             </CardContent>
@@ -384,19 +428,36 @@ interface TaskCardProps {
   onDeleteTask: (taskId: string) => void;
 }
 
+// Update the TaskCard component's delete button handler:
 const TaskCard: React.FC<TaskCardProps> = ({
   task,
   onStatusChange,
   members,
   setActiveTaskEdit,
   onTaskUpdate,
-  onDeleteTask, // Add the delete function
+  onDeleteTask,
 }) => {
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  useEffect(() => {
-    setActiveTaskEdit(isEditOpen ? task.id : null);
-  }, [isEditOpen, task.id, setActiveTaskEdit]);
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowDeleteDialog(true);
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await onDeleteTask(task.id);
+    } catch (error) {
+      console.error("Error deleting task:", error);
+    } finally {
+      setShowDeleteDialog(false);
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <>
       <Card
@@ -409,7 +470,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
             <div className="flex items-center space-x-2">
               <Select
                 value={task.status}
-                onValueChange={(value) => onStatusChange(task.id, value as keyof typeof TASK_STATUS)}
+                onValueChange={(value) =>
+                  onStatusChange(task.id, value as keyof typeof TASK_STATUS)
+                }
                 disabled={task.isLoading}
               >
                 <SelectTrigger className="h-6 w-full sm:w-24">
@@ -429,13 +492,16 @@ const TaskCard: React.FC<TaskCardProps> = ({
               </Select>
               <Button
                 variant="outline"
-                className="p-1"
-                onClick={(e) => {
-                  e.stopPropagation(); // Prevent opening the task editor on trash click
-                  onDeleteTask(task.id); // Call the delete function
-                }}
+                size="icon"
+                className="h-8 w-8"
+                onClick={handleDeleteClick}
+                disabled={isDeleting}
               >
-                <Trash2 className="h-1 w-1 text-red-500" />
+                {isDeleting ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-red-500" />
+                ) : (
+                  <Trash2 className="h-4 w-4 text-red-500" />
+                )}
               </Button>
             </div>
           </div>
@@ -457,6 +523,51 @@ const TaskCard: React.FC<TaskCardProps> = ({
         </div>
       </Card>
 
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Task</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>Are you sure you want to delete this task?</p>
+              <div className="bg-muted p-3 rounded-md mt-2">
+                <p className="font-medium">{task.title}</p>
+                {task.description && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {task.description}
+                  </p>
+                )}
+                {task.assignedTo && task.assignedTo.length > 0 && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Assigned to:{" "}
+                    {task.assignedTo.map((user) => user.name).join(", ")}
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-500 hover:bg-red-600 text-white"
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <TaskEditRoom
         task={task}
         isOpen={isEditOpen}
@@ -472,11 +583,3 @@ const TaskCard: React.FC<TaskCardProps> = ({
 };
 
 export default TaskBoard;
-
-function deleteTask(taskId: string) {
-  throw new Error("Function not implemented.");
-}
-function onTaskUpdate(taskId: string) {
-  throw new Error("Function not implemented.");
-}
-

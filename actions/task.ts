@@ -462,7 +462,7 @@ export async function shareResource(
         content: JSON.stringify({
           type: resource.type,
           description: resource.description,
-          url: resource.url
+          url: resource.url,
         }),
         groupId: groupId,
       },
@@ -492,15 +492,12 @@ export async function getMeetings(groupId: number) {
       },
     },
     orderBy: {
-      scheduledFor: 'desc'
-    }
+      scheduledFor: "desc",
+    },
   });
 }
 
-export async function updateMeetingStatus(
-  meetingId: number, 
-  status: string
-) {
+export async function updateMeetingStatus(meetingId: number, status: string) {
   const session = await getSession();
   const user = session?.user;
 
@@ -511,5 +508,43 @@ export async function updateMeetingStatus(
   return await prisma.meeting.update({
     where: { id: meetingId },
     data: { status },
+  });
+}
+
+export async function deleteTask(taskId: number) {
+  const session = await getSession();
+  const user = session?.user;
+
+  if (!user?.sub) {
+    throw new Error("Unauthorized");
+  }
+
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: {
+      group: {
+        include: {
+          members: true,
+        },
+      },
+    },
+  });
+
+  if (!task || !task.group.members.some((m) => m.userId === user.sub)) {
+    throw new Error("Task not found or unauthorized");
+  }
+
+  // Delete all comments associated with the task first
+  await prisma.comment.deleteMany({
+    where: {
+      taskId: taskId,
+    },
+  });
+
+  // Then delete the task
+  return await prisma.task.delete({
+    where: {
+      id: taskId,
+    },
   });
 }

@@ -89,6 +89,7 @@ body {
 
 .custom-scrollbar {
   scrollbar-width: thin; /* Firefox */
+  -ms-overflow-style: -ms-autohiding-scrollbar; /* IE and Edge */
   scrollbar-color: #fff transparent; /* Firefox (thumb color, track color) */
 }
 

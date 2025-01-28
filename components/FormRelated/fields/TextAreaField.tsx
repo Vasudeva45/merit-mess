@@ -177,6 +177,8 @@ function PropertiesComponent({
 }) {
   const element = elementInstance as CustomInstance;
   const { updateElement } = useDesigner();
+  type propertiesFormSchemaType = z.infer<typeof properitesSchema>;
+  
   const form = useForm<propertiesFormSchemaType>({
     resolver: zodResolver(properitesSchema),
     mode: "onBlur",

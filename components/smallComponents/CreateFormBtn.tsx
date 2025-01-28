@@ -110,7 +110,7 @@ const CreateFormBtn = () => {
     },
   });
 
-  const watchDomain = form.watch("domain");
+  const watchDomain = form.watch("domain") as keyof typeof SPECIALIZATIONS;
   const watchName = form.watch("name");
 
   const generateDescription = async () => {
@@ -153,7 +153,7 @@ const CreateFormBtn = () => {
     }
   };
 
-  const onSubmit = async (values) => {
+  const onSubmit = async (values: { name: string; description: string; domain: string; specialization: string }) => {
     try {
       const formId = await CreateForm(values);
       toast.success("Form Created Successfully", {

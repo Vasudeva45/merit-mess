@@ -13,8 +13,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Users } from "lucide-react";
 import { MentorshipRequestButton } from "./MentorshipRequestButton";
 
-const MentorshipRequest = ({ mentorId }) => {
-  const [userProjects, setUserProjects] = React.useState([]);
+interface MentorshipRequestProps {
+  mentorId: string;
+}
+
+const MentorshipRequest: React.FC<MentorshipRequestProps> = ({ mentorId }) => {
+  const [userProjects, setUserProjects] = React.useState<{ id: string; name: string }[]>([]);
   const [selectedProject, setSelectedProject] = React.useState("");
   const [message, setMessage] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -36,7 +40,7 @@ const MentorshipRequest = ({ mentorId }) => {
     fetchUserProjects();
   }, []);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError("");
@@ -118,8 +122,8 @@ const MentorshipRequest = ({ mentorId }) => {
           </div>
 
           <MentorshipRequestButton
-            mentorId={mentorProfile.userId}
-            projectGroupId={currentProject.id}
+            mentorId={mentorId}
+            projectGroupId={Number(selectedProject)}
           />
         </form>
       </CardContent>

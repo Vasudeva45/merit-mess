@@ -41,8 +41,8 @@ function PublishFormBtn({ id }: { id: number }) {
         type: "error",
         message: {
           title: "Publication Failed",
-          details: `Error Code: ${error?.code || "UNKNOWN"} • ${
-            error?.message || "Failed to publish form"
+          details: `Error Code: ${(error as any)?.code || "UNKNOWN"} • ${
+            (error as any)?.message || "Failed to publish form"
           }`,
         },
       });

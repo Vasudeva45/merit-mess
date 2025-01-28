@@ -29,8 +29,8 @@ const SaveFormBtn = ({ id }: { id: number }) => {
         type: "error",
         message: {
           title: "Operation Failed",
-          details: `Error Code: ${error?.code || "UNKNOWN"} • ${
-            error?.message || "An unexpected error occurred"
+          details: `Error Code: ${(error as any)?.code || "UNKNOWN"} • ${
+            (error as any)?.message || "An unexpected error occurred"
           }`,
         },
       });

@@ -1,7 +1,7 @@
 // MentorshipRequestButton.tsx
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
+import { ToastProvider, useToast } from "../../components/ui/toast";
 import {
   canRequestMentorship,
   createMentorshipRequest,
@@ -61,7 +61,7 @@ export const MentorshipRequestButton = ({
     } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to send mentorship request",
+        description: error instanceof Error ? error.message : "Failed to send mentorship request",
         variant: "destructive",
       });
     } finally {

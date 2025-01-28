@@ -6,7 +6,11 @@ import { Input } from "@/components/ui/input";
 import { AlertCircle, CheckCircle, Copy, X } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
-const FormLinkShare = ({ shareURL }) => {
+interface FormLinkShareProps {
+  shareURL: string;
+}
+
+const FormLinkShare: React.FC<FormLinkShareProps> = ({ shareURL }) => {
   const [showToast, setShowToast] = useState(false);
   const [mounted, setMounted] = useState(false);
 

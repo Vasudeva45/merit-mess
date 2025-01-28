@@ -14,7 +14,7 @@ import { scheduleMeeting, shareResource } from "@/actions/task";
 import { toast } from "sonner";
 
 interface MentorActionsProps {
-  groupId: string;
+  groupId: number;
   onUpdate?: () => void;
   tasks: any[];
 }
@@ -158,7 +158,11 @@ export default function MentorActions({ groupId, onUpdate, tasks }: MentorAction
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <label htmlFor="resourceType" className="block text-sm font-medium text-gray-700">
+              Resource Type
+            </label>
             <select 
+              id="resourceType"
               value={resourceType}
               onChange={(e) => setResourceType(e.target.value)}
               className="w-full p-2 border rounded"

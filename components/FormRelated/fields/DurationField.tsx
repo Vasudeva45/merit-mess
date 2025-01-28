@@ -40,7 +40,7 @@ const extraAttributes = {
   helperText: "Enter duration",
   required: false,
   placeholder: "Enter value",
-  unit: "minutes", // default unit
+  unit: "minutes" as "minutes" | "seconds" | "hours" | "days", // default unit
 };
 
 const propertiesSchema = z.object({
@@ -236,7 +236,10 @@ function PropertiesComponent({
   });
 
   useEffect(() => {
-    form.reset(element.extraAttributes);
+    form.reset({
+      ...element.extraAttributes,
+      unit: element.extraAttributes.unit as "minutes" | "seconds" | "hours" | "days",
+    });
   }, [element, form]);
 
   function applyChanges(values: propertiesFormSchemaType) {

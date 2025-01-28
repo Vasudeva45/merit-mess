@@ -38,12 +38,32 @@ import {
 import { getProfilesByIds } from "@/actions/profile";
 import CustomToast from "../Toast/custom-toast";
 
-const SubmissionGroupManager = ({
+interface Submission {
+  userId: string;
+  createdAt: string;
+  [key: string]: any; // Adjust this according to the actual structure of your submission object
+}
+
+interface Group {
+  id: string;
+  name: string;
+  description: string;
+  ownerId: string;
+  members: { userId: string; status: string; role: string }[];
+}
+
+interface SubmissionGroupManagerProps {
+  formId: string;
+  submissions: Submission[];
+  existingGroup?: Group | null;
+}
+
+const SubmissionGroupManager: React.FC<SubmissionGroupManagerProps> = ({
   formId,
   submissions,
   existingGroup = null,
 }) => {
-  const [selectedUsers, setSelectedUsers] = useState(new Set());
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
   const [groupName, setGroupName] = useState(existingGroup?.name || "");
   const [groupDescription, setGroupDescription] = useState(
@@ -51,7 +71,15 @@ const SubmissionGroupManager = ({
   );
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [userToRemove, setUserToRemove] = useState(null);
-  const [toast, setToast] = useState(null);
+  interface Toast {
+    type: "success" | "error";
+    message: {
+      title: string;
+      details: string;
+    };
+  }
+  
+  const [toast, setToast] = useState<Toast | null>(null);
   const [currentGroup, setCurrentGroup] = useState(existingGroup);
   const [localSubmissions, setLocalSubmissions] = useState(submissions);
   const [isRemoving, setIsRemoving] = useState(false);
@@ -68,7 +96,7 @@ const SubmissionGroupManager = ({
   const uniqueSubmissions = useMemo(() => {
     const userMap = new Map();
     const sortedSubmissions = [...localSubmissions].sort(
-      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
     sortedSubmissions.forEach((submission) => {
@@ -83,7 +111,7 @@ const SubmissionGroupManager = ({
     return Array.from(userMap.values());
   }, [localSubmissions, currentGroup?.ownerId]);
 
-  const [profiles, setProfiles] = useState({});
+  const [profiles, setProfiles] = useState<{ [key: string]: any }>({});
   const userIds = useMemo(
     () => uniqueSubmissions.map((s) => s.userId),
     [uniqueSubmissions]
@@ -93,12 +121,12 @@ const SubmissionGroupManager = ({
     const fetchProfiles = async () => {
       try {
         const fetchedProfiles = await getProfilesByIds(userIds);
-        const profileMap = fetchedProfiles.reduce((acc, profile) => {
+        const profileMap = fetchedProfiles.reduce((acc: { [key: string]: any }, profile) => {
           acc[profile.userId] = profile;
           return acc;
         }, {});
         setProfiles(profileMap);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching profiles:", error);
       }
     };
@@ -106,7 +134,7 @@ const SubmissionGroupManager = ({
     fetchProfiles();
   }, [userIds]);
 
-  const handleUserSelection = (userId) => {
+  const handleUserSelection = (userId: string) => {
     const member = existingMembers.get(userId);
     if (
       existingMembers.has(userId) ||
@@ -131,14 +159,18 @@ const SubmissionGroupManager = ({
     setIsCreatingGroup(true);
     try {
       const updatedGroup = await createProjectGroup({
-        formId,
+        formId: Number(formId),
         name: groupName,
         description: groupDescription,
         selectedMembers: Array.from(selectedUsers),
-        groupId: currentGroup?.id,
+        groupId: currentGroup ? Number(currentGroup.id) : 0,
       });
 
-      setCurrentGroup(updatedGroup);
+      setCurrentGroup({
+        ...updatedGroup,
+        id: String(updatedGroup.id),
+        description: updatedGroup.description || "",
+      });
       setSelectedUsers(new Set());
       setIsGroupDialogOpen(false);
 
@@ -151,7 +183,7 @@ const SubmissionGroupManager = ({
           details: `Group: ${groupName} • Members: ${selectedUsers.size} • Form ID: ${formId}`,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       setToast({
         type: "error",
         message: {
@@ -172,17 +204,20 @@ const SubmissionGroupManager = ({
     setIsRemoving(true);
     try {
       await updateGroupMember({
-        groupId: currentGroup.id,
+        groupId: currentGroup ? Number(currentGroup.id) : 0,
         userId: userToRemove,
         action: "remove",
       });
 
-      setCurrentGroup((prev) => ({
-        ...prev,
-        members: prev.members.filter(
-          (member) => member.userId !== userToRemove
-        ),
-      }));
+      setCurrentGroup((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          members: prev.members.filter(
+            (member) => member.userId !== userToRemove
+          ),
+        };
+      });
 
       setToast({
         type: "success",
@@ -191,14 +226,14 @@ const SubmissionGroupManager = ({
           details: `from the group`,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       setToast({
         type: "error",
         message: {
           title: "Member Removal Failed",
           details: `Error: ${
             error?.message || "Unknown error occurred"
-          } • Group ID: ${currentGroup.id}`,
+          } • Group ID: ${currentGroup?.id || "N/A"}`,
         },
       });
     } finally {
@@ -324,7 +359,7 @@ const SubmissionGroupManager = ({
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {profile?.skills?.slice(0, 3).map((skill) => (
+                          {profile?.skills?.slice(0, 3).map((skill: string) => (
                             <Badge
                               key={skill}
                               variant="secondary"

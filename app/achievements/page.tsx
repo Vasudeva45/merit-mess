@@ -16,7 +16,15 @@ import { getMyProjectGroups } from "@/actions/group";
 
 const AchievementsPage = () => {
   const { user, isLoading: userLoading } = useUser();
-  const [projects, setProjects] = useState([]);
+  const [projects, setProjects] = useState<
+    {
+      id: number;
+      form: { name: string; description: string };
+      members: { profile: { name: string }; status: string; id: number; userId: string; role: string; groupId: number; joinedAt: Date }[];
+      status: string;
+      mentorId: string | null;
+    }[]
+  >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [achievements, setAchievements] = useState({
     totalPoints: 0,
@@ -58,12 +66,12 @@ const AchievementsPage = () => {
     redirect("/api/auth/login");
   }
 
-  const getProjectProgress = (project) => {
+  const getProjectProgress = (project: { status: string }) => {
     // Simulate project progress (you might want to replace with actual progress tracking)
     return project.status === "completed" ? 100 : 60;
   };
 
-  const renderProgressBar = (progress) => {
+  const renderProgressBar = (progress: number) => {
     const progressColor = progress === 100 ? "bg-green-500" : "bg-primary";
 
     return (

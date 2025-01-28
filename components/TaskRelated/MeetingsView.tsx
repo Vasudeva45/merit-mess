@@ -51,7 +51,7 @@ export default function MeetingsView({ meetings, groupId, onUpdate }: MeetingsVi
             {meeting.meetLink && (
               <Button 
                 variant="outline"
-                onClick={() => handleJoinMeeting(meeting.meetLink)}
+                onClick={() => meeting.meetLink && handleJoinMeeting(meeting.meetLink)}
                 className="flex items-center gap-2"
               >
                 Join Meeting

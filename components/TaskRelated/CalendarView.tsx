@@ -1,5 +1,12 @@
 import React, { useMemo, useState, useCallback } from "react";
-import { Calendar, momentLocalizer, Views, Navigate, NavigateAction, View } from "react-big-calendar";
+import {
+  Calendar,
+  momentLocalizer,
+  Views,
+  Navigate,
+  NavigateAction,
+  View,
+} from "react-big-calendar";
 import moment from "moment";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { useUser } from "@auth0/nextjs-auth0/client";
@@ -22,7 +29,6 @@ import {
   Calendar as CalendarIcon,
 } from "lucide-react";
 
-// Initialize the localizer
 const localizer = momentLocalizer(moment);
 
 // Status configuration
@@ -67,7 +73,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const { user } = useUser();
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [date, setDate] = useState(new Date());
-  const [view, setView] = useState<keyof typeof Views>('MONTH');
+  const [view, setView] = useState<keyof typeof Views>("MONTH");
 
   // Transform tasks into calendar events, filtering for the current user
   const events = useMemo(() => {
@@ -134,7 +140,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   // Custom toolbar component
   const CustomToolbar = useCallback(
-    ({ label, onNavigate, onView }: { label: string; onNavigate: (navigate: NavigateAction, date?: Date) => void; onView: (view: View) => void }) => {
+    ({
+      label,
+      onNavigate,
+      onView,
+    }: {
+      label: string;
+      onNavigate: (navigate: NavigateAction, date?: Date) => void;
+      onView: (view: View) => void;
+    }) => {
       return (
         <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-b space-y-2 sm:space-y-0">
           <div className="flex items-center space-x-2 w-full sm:w-auto justify-between sm:justify-start">
@@ -145,13 +159,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 title="Previous"
               >
                 <ChevronLeft className="h-5 w-5" />
-              <button
-                onClick={() => onNavigate(Navigate.NEXT)}
-                className="hover:bg-neutral-100 dark:hover:bg-neutral-700 p-2 rounded-md transition-colors"
-                title="Next"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
+                <button
+                  onClick={() => onNavigate(Navigate.NEXT)}
+                  className="hover:bg-neutral-100 dark:hover:bg-neutral-700 p-2 rounded-md transition-colors"
+                  title="Next"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
               </button>
               <button
                 onClick={() => onNavigate(Navigate.TODAY)}
@@ -241,15 +255,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 Assigned To
               </h4>
               <div className="flex gap-2 flex-wrap">
-                {selectedTask.assignedTo.map((assignee: { name: string; userId: string }) => (
-                  <Badge
-                    key={assignee.userId}
-                    variant="secondary"
-                    className="text-xs"
-                  >
-                    {assignee.name}
-                  </Badge>
-                ))}
+                {selectedTask.assignedTo.map(
+                  (assignee: { name: string; userId: string }) => (
+                    <Badge
+                      key={assignee.userId}
+                      variant="secondary"
+                      className="text-xs"
+                    >
+                      {assignee.name}
+                    </Badge>
+                  )
+                )}
               </div>
             </div>
 
@@ -328,7 +344,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         style={{ height: "100%" }}
         eventStyleGetter={eventStyleGetter}
         dayPropGetter={dayPropGetter}
-        views={['month', 'week', 'day']}
+        views={["month", "week", "day"]}
         components={{
           toolbar: CustomToolbar,
         }}

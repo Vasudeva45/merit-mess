@@ -31,7 +31,6 @@ import {
 
 const localizer = momentLocalizer(moment);
 
-// Status configuration
 const STATUS_CONFIGS = {
   todo: {
     icon: <Clock className="mr-2 h-4 w-4" />,

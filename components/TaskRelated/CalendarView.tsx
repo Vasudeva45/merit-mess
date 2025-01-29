@@ -31,6 +31,33 @@ import {
 
 const localizer = momentLocalizer(moment);
 
+// Define proper interfaces for type safety
+interface TaskEvent {
+  id: number;
+  title: string;
+  description?: string;
+  dueDate?: Date;
+  status: string;
+  priority?: string;
+  assignedTo: Array<{ name: string; userId: string }>;
+  start: Date;
+  end: Date;
+}
+
+interface CalendarViewProps {
+  tasks: Array<{
+    id: number;
+    title: string;
+    description?: string;
+    dueDate?: Date;
+    status: string;
+    priority?: string;
+    assignedTo: Array<{ name: string; userId: string }>;
+  }>;
+  onTaskEdit?: (taskId: number) => void;
+  onTaskStatusUpdate?: (taskId: number, status: string) => void;
+}
+
 const STATUS_CONFIGS = {
   todo: {
     icon: <Clock className="mr-2 h-4 w-4" />,
@@ -50,44 +77,35 @@ const STATUS_CONFIGS = {
   },
 };
 
-interface CalendarViewProps {
-  tasks: Array<{
-    id: number;
-    title: string;
-    description?: string;
-    dueDate?: Date;
-    status: string;
-    priority?: string;
-    assignedTo: Array<{ name: string; userId: string }>;
-  }>;
-  onTaskEdit?: (taskId: number) => void;
-  onTaskStatusUpdate?: (taskId: number, status: string) => void;
-}
-
 const CalendarView: React.FC<CalendarViewProps> = ({
   tasks,
   onTaskEdit,
   onTaskStatusUpdate,
 }) => {
   const { user } = useUser();
-  const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [selectedTask, setSelectedTask] = useState<TaskEvent | null>(null);
   const [date, setDate] = useState(new Date());
-  const [view, setView] = useState<keyof typeof Views>("MONTH");
+  const [view, setView] = useState<View>("month");
 
   // Transform tasks into calendar events, filtering for the current user
   const events = useMemo(() => {
+    if (!tasks || !Array.isArray(tasks)) return [];
+
     return tasks
-      .filter((task) => {
-        if (!user) return false;
+      .filter((task): task is NonNullable<typeof task> => {
+        if (!user || !task) return false;
         return (
-          task.dueDate &&
-          task.assignedTo.some((assignee) => assignee.userId === user.sub)
+          !!task.dueDate &&
+          Array.isArray(task.assignedTo) &&
+          task.assignedTo.some((assignee) => assignee?.userId === user.sub)
         );
       })
       .map((task) => ({
         ...task,
-        start: task.dueDate ? new Date(task.dueDate) : new Date(),
-        end: task.dueDate ? new Date(task.dueDate) : new Date(),
+        title: task.title || "Untitled Task",
+        start: new Date(task.dueDate!),
+        end: new Date(task.dueDate!),
+        status: task.status || "todo",
       }));
   }, [tasks, user]);
 
@@ -120,22 +138,31 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   }, []);
 
   // Custom event styling
-  const eventStyleGetter = useCallback(
-    (event: any) => ({
+  const eventStyleGetter = useCallback((event: TaskEvent) => {
+    const status = event?.status || "todo";
+
+    return {
       className: `rbc-event rbc-event-custom rounded-md p-1 text-sm 
-      ${event.status === "completed" ? "opacity-50" : "opacity-90"}
+      ${status === "completed" ? "opacity-50" : "opacity-90"}
       ${
-        event.status === "todo"
+        status === "todo"
           ? "bg-neutral-200 text-neutral-800"
-          : event.status === "in-progress"
+          : status === "in-progress"
           ? "bg-blue-100 text-blue-800"
-          : event.status === "review"
+          : status === "review"
           ? "bg-yellow-100 text-yellow-800"
           : "bg-green-100 text-green-800"
       }`,
-    }),
-    []
-  );
+    };
+  }, []);
+
+  const tooltipAccessor = useCallback((event: TaskEvent) => {
+    if (!event?.title) return "";
+    const status = event?.status || "todo";
+    const statusLabel =
+      STATUS_CONFIGS[status as keyof typeof STATUS_CONFIGS]?.label || "Unknown";
+    return `${event.title}\nStatus: ${statusLabel}`;
+  }, []);
 
   // Custom toolbar component
   const CustomToolbar = useCallback(
@@ -151,21 +178,26 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       return (
         <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-b space-y-2 sm:space-y-0">
           <div className="flex items-center space-x-2 w-full sm:w-auto justify-between sm:justify-start">
-            <div className="flex items-center">
+            <div className="flex items-center space-x-2">
+              {/* Fixed Previous button */}
               <button
                 onClick={() => onNavigate(Navigate.PREVIOUS)}
                 className="hover:bg-neutral-100 dark:hover:bg-neutral-700 p-2 rounded-md transition-colors"
                 title="Previous"
               >
                 <ChevronLeft className="h-5 w-5" />
-                <button
-                  onClick={() => onNavigate(Navigate.NEXT)}
-                  className="hover:bg-neutral-100 dark:hover:bg-neutral-700 p-2 rounded-md transition-colors"
-                  title="Next"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
               </button>
+
+              {/* Fixed Next button */}
+              <button
+                onClick={() => onNavigate(Navigate.NEXT)}
+                className="hover:bg-neutral-100 dark:hover:bg-neutral-700 p-2 rounded-md transition-colors"
+                title="Next"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+
+              {/* Today button */}
               <button
                 onClick={() => onNavigate(Navigate.TODAY)}
                 className="flex items-center gap-2 px-3 py-2 bg-neutral-100 dark:bg-neutral-800 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors text-sm"
@@ -187,7 +219,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 onClick={() => onView(viewOption)}
                 className={`px-2 sm:px-3 py-1 sm:py-2 rounded-md text-xs sm:text-sm transition-colors whitespace-nowrap
                 ${
-                  view.toLowerCase() === viewOption
+                  view.toLowerCase() === viewOption.toLowerCase()
                     ? "bg-neutral-800 dark:bg-neutral-200 text-white dark:text-neutral-900"
                     : "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
                 }`}
@@ -312,8 +344,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     );
   };
 
-  // If no tasks or no user, show a message
-  if (!user || events.length === 0) {
+  if (!user || !Array.isArray(events) || events.length === 0) {
     return (
       <div className="text-center text-neutral-500 py-10 text-sm sm:text-base">
         {!user
@@ -331,14 +362,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         startAccessor="start"
         endAccessor="end"
         date={date}
-        onNavigate={(newDate, view, action) => {
-          // Ensure date is updated on navigation
-          setDate(newDate);
-        }}
-        onView={(newView) => {
-          // Update the view state
-          setView(newView.toLowerCase() as keyof typeof Views);
-        }}
+        onNavigate={(newDate) => setDate(newDate)}
+        onView={(newView) => setView(newView)}
         view={view}
         style={{ height: "100%" }}
         eventStyleGetter={eventStyleGetter}
@@ -348,12 +373,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           toolbar: CustomToolbar,
         }}
         onSelectEvent={handleSelectEvent}
-        tooltipAccessor={(event) =>
-          `${event.title}\nStatus: ${
-            STATUS_CONFIGS[event.status as keyof typeof STATUS_CONFIGS]?.label
-          }`
-        }
-        // Add mobile-specific props
+        tooltipAccessor={tooltipAccessor}
         popup
         selectable
         longPressThreshold={50}

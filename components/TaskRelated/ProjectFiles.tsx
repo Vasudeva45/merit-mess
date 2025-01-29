@@ -28,7 +28,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { useToast } from "@/hooks/use-toast";
+import CustomToast, { ToastMessage } from "../Toast/custom-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,7 +50,11 @@ interface ProjectFilesProps {
   onUpdate: () => void;
 }
 
-const ProjectFiles: React.FC<ProjectFilesProps> = ({ files, groupId, onUpdate }) => {
+const ProjectFiles: React.FC<ProjectFilesProps> = ({
+  files: initialFiles,
+  groupId,
+  onUpdate,
+}) => {
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<null | {
     id: string;
@@ -61,8 +65,29 @@ const ProjectFiles: React.FC<ProjectFilesProps> = ({ files, groupId, onUpdate })
     url: string;
     viewUrl: string;
   }>(null);
-  const { toast } = useToast();
+  const [files, setFiles] = useState(initialFiles);
+  const [toast, setToast] = useState<{
+    message: ToastMessage;
+    type: "success" | "error";
+  } | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Sort files by uploadedAt date (most recent first)
+  const sortedFiles = [...files].sort(
+    (a, b) =>
+      new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
+  );
+
+  const showToast = (
+    title: string,
+    details: string,
+    type: "success" | "error"
+  ) => {
+    setToast({
+      message: { title, details },
+      type,
+    });
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -70,11 +95,7 @@ const ProjectFiles: React.FC<ProjectFilesProps> = ({ files, groupId, onUpdate })
 
     // Check file size (5MB limit)
     if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: "Error",
-        description: "File size must be less than 5MB",
-        variant: "destructive",
-      });
+      showToast("Upload Error", "File size must be less than 5MB", "error");
       return;
     }
 
@@ -98,24 +119,84 @@ const ProjectFiles: React.FC<ProjectFilesProps> = ({ files, groupId, onUpdate })
 
       const data = await response.json();
 
-      toast({
-        title: "Success",
-        description: "File uploaded successfully",
-      });
+      // Check if data exists and has the expected structure
+      if (data) {
+        // Update the local files state immediately
+        const newFile = {
+          id: data.id,
+          name: file.name, // Use the original file name if data.name is undefined
+          type: file.type,
+          size: file.size,
+          uploadedAt: new Date().toISOString(), // Use current time if not provided
+          url: data.url || "",
+          viewUrl: data.viewUrl || "",
+          ...data, // Spread the response data to override defaults if provided
+        };
 
-      onUpdate();
+        setFiles((prevFiles) => [newFile, ...prevFiles]);
+
+        showToast(
+          "Upload Successful",
+          `${file.name} has been uploaded successfully`,
+          "success"
+        );
+
+        onUpdate();
+      } else {
+        throw new Error("Invalid response data");
+      }
     } catch (error) {
       console.error("Failed to upload file:", error);
-      toast({
-        title: "Error",
-        description: "Failed to upload file",
-        variant: "destructive",
-      });
+      showToast(
+        "Upload Failed",
+        "There was an error uploading your file. Please try again.",
+        "error"
+      );
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+    }
+  };
+
+  const handleDownload = async (
+    file: {
+      url: string;
+      name: string;
+    },
+    event: React.MouseEvent
+  ) => {
+    event.preventDefault(); // Prevent default navigation
+
+    try {
+      showToast("Download Started", `Downloading ${file.name}...`, "success");
+
+      const response = await fetch(file.url);
+      const blob = await response.blob();
+
+      // Create a temporary URL for the blob
+      const downloadUrl = window.URL.createObjectURL(blob);
+
+      // Create a temporary anchor element
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = file.name; // Set the file name
+      document.body.appendChild(link);
+
+      // Trigger the download
+      link.click();
+
+      // Clean up
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.error("Download failed:", error);
+      showToast(
+        "Download Failed",
+        `Failed to download ${file.name}. Please try again.`,
+        "error"
+      );
     }
   };
 
@@ -136,16 +217,13 @@ const ProjectFiles: React.FC<ProjectFilesProps> = ({ files, groupId, onUpdate })
     try {
       const fullUrl = `${window.location.origin}/files/${viewUrl}`;
       await navigator.clipboard.writeText(fullUrl);
-      toast({
-        title: "Success",
-        description: "View URL copied to clipboard",
-      });
+      showToast(
+        "Link Copied",
+        "File link has been copied to clipboard",
+        "success"
+      );
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to copy URL",
-        variant: "destructive",
-      });
+      showToast("Copy Failed", "Failed to copy link to clipboard", "error");
     }
   };
 
@@ -158,7 +236,15 @@ const ProjectFiles: React.FC<ProjectFilesProps> = ({ files, groupId, onUpdate })
     );
   };
 
-  const renderFilePreview = (file: { id: string; name: string; type: string; size: number; uploadedAt: string; url: string; viewUrl: string }) => {
+  const renderFilePreview = (file: {
+    id: string;
+    name: string;
+    type: string;
+    size: number;
+    uploadedAt: string;
+    url: string;
+    viewUrl: string;
+  }) => {
     if (file.type.startsWith("image/")) {
       return (
         <img
@@ -199,6 +285,13 @@ const ProjectFiles: React.FC<ProjectFilesProps> = ({ files, groupId, onUpdate })
 
   return (
     <div className="space-y-4">
+      {toast && (
+        <CustomToast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
       <div className="flex flex-col sm:flex-row justify-between items-center space-y-2 sm:space-y-0">
         <h2 className="text-xl sm:text-2xl font-bold">Project Files</h2>
         <div>
@@ -239,7 +332,7 @@ const ProjectFiles: React.FC<ProjectFilesProps> = ({ files, groupId, onUpdate })
               </TableRow>
             </TableHeader>
             <TableBody>
-              {files.map((file) => (
+              {sortedFiles.map((file) => (
                 <TableRow key={file.id}>
                   <TableCell className="flex items-center space-x-2">
                     <File className="h-4 w-4" />
@@ -254,10 +347,12 @@ const ProjectFiles: React.FC<ProjectFilesProps> = ({ files, groupId, onUpdate })
                   </TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
-                      <Button variant="ghost" size="sm" asChild>
-                        <a href={file.url} download title={`Download ${file.name}`}>
-                          <Download className="h-4 w-4" />
-                        </a>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => handleDownload(file, e)}
+                      >
+                        <Download className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -277,7 +372,7 @@ const ProjectFiles: React.FC<ProjectFilesProps> = ({ files, groupId, onUpdate })
                   </TableCell>
                 </TableRow>
               ))}
-              {files.length === 0 && (
+              {sortedFiles.length === 0 && (
                 <TableRow>
                   <TableCell
                     colSpan={5}
@@ -292,12 +387,12 @@ const ProjectFiles: React.FC<ProjectFilesProps> = ({ files, groupId, onUpdate })
 
           {/* Mobile List View */}
           <div className="sm:hidden">
-            {files.length === 0 ? (
+            {sortedFiles.length === 0 ? (
               <div className="text-center text-gray-500 p-4">
                 No files uploaded yet
               </div>
             ) : (
-              files.map((file) => (
+              sortedFiles.map((file) => (
                 <div
                   key={file.id}
                   className="flex justify-between items-center p-4 border-b hover:bg-gray-50"
@@ -324,10 +419,10 @@ const ProjectFiles: React.FC<ProjectFilesProps> = ({ files, groupId, onUpdate })
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem asChild>
-                        <a href={file.url} download>
-                          <Download className="mr-2 h-4 w-4" /> Download
-                        </a>
+                      <DropdownMenuItem
+                        onClick={(e) => handleDownload(file, e)}
+                      >
+                        <Download className="mr-2 h-4 w-4" /> Download
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => copyViewUrl(file.viewUrl)}

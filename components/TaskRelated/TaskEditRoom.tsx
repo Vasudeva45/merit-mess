@@ -69,8 +69,17 @@ interface TaskEditRoomProps {
   onUpdate: (updatedTask: any) => void;
 }
 
-const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, members, onUpdate }) => {
-  const [status, setStatus] = useState<keyof typeof TASK_STATUS>(task?.status || "todo");
+const TaskEditRoom: React.FC<TaskEditRoomProps> = ({
+  task,
+  isOpen,
+  onClose,
+  members,
+  onUpdate,
+}) => {
+  // Local state for tracking changes
+  const [status, setStatus] = useState<keyof typeof TASK_STATUS>(
+    task?.status || "todo"
+  );
   const [priority, setPriority] = useState(task?.priority || "medium");
   const [assignees, setAssignees] = useState(
     task?.assignedTo?.map((user: { userId: string }) => user.userId) || []
@@ -79,9 +88,7 @@ const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, memb
   const [loading, setLoading] = useState(false);
   const [isEditingDesc, setIsEditingDesc] = useState(false);
   const [description, setDescription] = useState(task?.description || "");
-  const [date, setDate] = useState(
-    task?.dueDate ? new Date(task.dueDate) : null
-  );
+  const [date, setDate] = useState(task?.dueDate ? new Date(task.dueDate) : null);
 
   const [toast, setToast] = useState<{
     message: ToastMessage;
@@ -101,98 +108,76 @@ const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, memb
     });
   };
 
-  const handleUpdate = async (updateData: Partial<typeof task>) => {
+  // Handle saving all changes at once
+  const handleSave = async () => {
     try {
       setLoading(true);
+
+      // Prepare the update data
+      const updateData = {
+        status,
+        priority,
+        description,
+        dueDate: date || undefined,
+        assigneeIds: assignees,
+      };
+
+      // Call the update API
       const updatedTask = await updateTask(task.id, updateData);
-      onUpdate(updatedTask); // Pass the updated task back to parent
-      showToast(
-        "Task Updated",
-        `Successfully updated ${Object.keys(updateData).join(", ")}`,
-        "success"
-      );
-      return updatedTask;
+
+      // Notify parent component of the update
+      onUpdate(updatedTask);
+
+      // Show success toast
+      showToast("Task Updated", "All changes were saved successfully.", "success");
     } catch (error) {
       console.error("Failed to update task:", error);
       showToast(
         "Update Failed",
-        (error instanceof Error ? error.message : "Failed to update task"),
+        error instanceof Error ? error.message : "Failed to update task",
         "error"
       );
-      throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  const handleStatusChange = async (newStatus: keyof typeof TASK_STATUS) => {
-    setStatus(newStatus);
+  // Handle adding a comment (still saved immediately)
+  const handleCommentSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!newComment.trim()) return;
+
     try {
-      const updatedTask = await handleUpdate({ status: newStatus });
-      return updatedTask;
+      setLoading(true);
+
+      // Add the comment
+      const addedComment = await addComment({
+        content: newComment,
+        taskId: task.id,
+      });
+
+      // Update the task comments
+      onUpdate({
+        ...task,
+        comments: [...task.comments, addedComment],
+      });
+
+      // Clear the comment input
+      setNewComment("");
+
+      // Show success toast
+      showToast("Comment Added", "Your comment was successfully added.", "success");
     } catch (error) {
-      // Revert status if update fails
-      setStatus(task.status);
+      console.error("Failed to add comment:", error);
+      showToast(
+        "Comment Failed",
+        error instanceof Error ? error.message : "Failed to add comment",
+        "error"
+      );
+    } finally {
+      setLoading(false);
     }
   };
-
-  const handlePriorityChange = async (newPriority: keyof typeof PRIORITY_OPTIONS) => {
-    setPriority(newPriority);
-    await handleUpdate({ priority: newPriority });
-  };
-
-  const handleDescriptionSave = async () => {
-    setIsEditingDesc(false);
-    await handleUpdate({ description });
-  };
-
-  const handleDateChange = async (newDate: Date | undefined) => {
-    setDate(newDate || null);
-    await handleUpdate({ dueDate: newDate });
-  };
-
-  const handleAssigneesChange = async (userId: string) => {
-    const newAssignees = assignees.includes(userId)
-      ? assignees.filter((id: string) => id !== userId)
-      : [...assignees, userId];
-
-    setAssignees(newAssignees);
-    await handleUpdate({ assigneeIds: newAssignees });
-  };
-
-  const handleCommentSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-  if (!newComment.trim()) return;
-
-  try {
-    setLoading(true);
-
-    // Assuming addComment is an API call or function that adds the comment.
-    const addedComment = await addComment({
-      content: newComment,
-      taskId: task.id,
-    });
-
-    // Directly update the task comments without waiting for a page refresh
-    onUpdate({
-      ...task,
-      comments: [...task.comments, addedComment],
-    });
-
-    // Clear the new comment input
-    setNewComment("");
-
-    // Show success toast
-    showToast("Comment Added", "Your comment was successfully added to the task", "success");
-  } catch (error) {
-    console.error("Failed to add comment:", error);
-    showToast("Comment Failed", (error instanceof Error ? error.message : "Failed to add comment"), "error");
-  } finally {
-    setLoading(false);
-  }
-};
-
-  
 
   return (
     <>
@@ -208,6 +193,7 @@ const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, memb
                   />
                   <h2 className="text-2xl font-semibold">{task?.title}</h2>
                 </div>
+                
               </div>
             </div>
 
@@ -222,21 +208,15 @@ const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, memb
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() =>
-                        isEditingDesc
-                          ? handleDescriptionSave()
-                          : setIsEditingDesc(true)
-                      }
+                      onClick={() => setIsEditingDesc(!isEditingDesc)}
                       disabled={loading}
                     >
-                      {loading ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : isEditingDesc ? (
+                      {isEditingDesc ? (
                         <Save className="h-4 w-4 mr-2" />
                       ) : (
                         <Edit2 className="h-4 w-4 mr-2" />
                       )}
-                      {loading ? "Saving..." : isEditingDesc ? "Save" : "Edit"}
+                      {isEditingDesc ? "Save" : "Edit"}
                     </Button>
                   </div>
                   {isEditingDesc ? (
@@ -260,62 +240,68 @@ const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, memb
 
                 <Separator />
 
-               {/* Comments */}
-<div className="space-y-4">
-  {/* Header */}
-  <div className="flex items-center gap-2">
-    <MessageSquare className="h-5 w-5" />
-    <h3 className="text-lg font-medium">Comments</h3>
-  </div>
-
-  {/* Scrollable Comments Section */}
-  <div
-  className="space-y-4 max-h-40 overflow-y-auto p-2 border rounded-md custom-scrollbar"
->
-
-    {task?.comments?.map((comment: { author: { name: string }; createdAt: string; content: string }, index: number) => (
-      <Card key={index}>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center">
-              {comment.author.name.charAt(0)}
-            </div>
-            <div>
-              <div className="font-medium">{comment.author.name}</div>
-              <div className="text-xs text-gray-500">
-                {new Date(comment.createdAt).toLocaleDateString()}
-              </div>
-            </div>
-          </div>
-          <p className="text-sm">{comment.content}</p>
-        </CardContent>
-      </Card>
-    ))}
-  </div>
-
-  {/* New Comment Form */}
-  <form onSubmit={handleCommentSubmit} className="flex gap-2">
-    <Textarea
-      value={newComment}
-      onChange={(e) => setNewComment(e.target.value)}
-      placeholder="Write a comment..."
-      className="flex-1"
-      disabled={loading}
-    />
-    <Button
-      type="submit"
-      disabled={loading || !newComment.trim()}
-    >
-      {loading ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        <Send className="h-4 w-4" />
-      )}
-    </Button>
-  </form>
-</div>
-
-
+                {/* Comments */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    <h3 className="text-lg font-medium">Comments</h3>
+                  </div>
+                  <div className="space-y-4 max-h-40 overflow-y-auto p-2 border rounded-md custom-scrollbar">
+                    {task?.comments?.map(
+                      (
+                        comment: {
+                          author: { name: string };
+                          createdAt: string;
+                          content: string;
+                        },
+                        index: number
+                      ) => (
+                        <Card key={index}>
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center">
+                                {comment.author.name.charAt(0)}
+                              </div>
+                              <div>
+                                <div className="font-medium">
+                                  {comment.author.name}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {new Date(comment.createdAt).toLocaleDateString()}
+                                </div>
+                              </div>
+                            </div>
+                            <p className="text-sm">{comment.content}</p>
+                          </CardContent>
+                        </Card>
+                      )
+                    )}
+                  </div>
+                  <form onSubmit={handleCommentSubmit} className="flex gap-2">
+                    <Textarea
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder="Write a comment..."
+                      className="flex-1"
+                      disabled={loading}
+                    />
+                    <Button type="submit" disabled={loading || !newComment.trim()}>
+                      {loading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </form>
+                </div>
+                <Button onClick={handleSave} disabled={loading} className="w-full">
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  Save
+                </Button>
               </div>
 
               {/* Right Panel */}
@@ -325,7 +311,9 @@ const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, memb
                   <label className="text-sm font-medium">Status</label>
                   <Select
                     value={status}
-                    onValueChange={handleStatusChange}
+                    onValueChange={(value: keyof typeof TASK_STATUS) =>
+                      setStatus(value)
+                    }
                     disabled={loading}
                   >
                     <SelectTrigger>
@@ -353,7 +341,9 @@ const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, memb
                   <label className="text-sm font-medium">Priority</label>
                   <Select
                     value={priority}
-                    onValueChange={handlePriorityChange}
+                    onValueChange={(value: keyof typeof PRIORITY_OPTIONS) =>
+                      setPriority(value)
+                    }
                     disabled={loading}
                   >
                     <SelectTrigger>
@@ -379,7 +369,12 @@ const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, memb
                   <label className="text-sm font-medium">Assignees</label>
                   <Select
                     value={assignees[assignees.length - 1] || ""}
-                    onValueChange={handleAssigneesChange}
+                    onValueChange={(userId: string) => {
+                      const newAssignees = assignees.includes(userId)
+                        ? assignees.filter((id: string) => id !== userId)
+                        : [...assignees, userId];
+                      setAssignees(newAssignees);
+                    }}
                     disabled={loading}
                   >
                     <SelectTrigger>
@@ -424,7 +419,11 @@ const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, memb
                             variant="ghost"
                             size="sm"
                             className="ml-auto p-0 h-6 w-6"
-                            onClick={() => handleAssigneesChange(user.userId)}
+                            onClick={() =>
+                              setAssignees(
+                                assignees.filter((id: string) => id !== user.userId)
+                              )
+                            }
                             disabled={loading}
                           >
                             <X className="h-4 w-4" />
@@ -452,7 +451,7 @@ const TaskEditRoom: React.FC<TaskEditRoomProps> = ({ task, isOpen, onClose, memb
                       <CalendarUI
                         mode="single"
                         selected={date || undefined}
-                        onSelect={handleDateChange}
+                        onSelect={(newDate) => setDate(newDate || null)}
                         initialFocus
                       />
                     </PopoverContent>

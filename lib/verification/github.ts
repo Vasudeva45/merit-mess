@@ -80,7 +80,7 @@ export class GitHubVerification {
         verified: false,
         score: 0,
         details: {},
-        error: error.message || "Verification failed",
+        error: (error as any).message || "Verification failed",
       };
     }
   }
@@ -176,8 +176,9 @@ export class GitHubVerification {
         });
 
         // Check each file in the gist
+        if (!gistContent.files) return false;
         for (const file of Object.values(gistContent.files)) {
-          if (file.content?.includes(code)) {
+          if (file && file.content?.includes(code)) {
             return true;
           }
         }
@@ -234,7 +235,7 @@ export class GitHubVerification {
         }
       `;
 
-      const response = await this.octokit.graphql(query, { username });
+      const response: { user: { contributionsCollection: { totalContributions: number } } } = await this.octokit.graphql(query, { username });
       return response?.user?.contributionsCollection?.totalContributions || 0;
     } catch (error) {
       console.error("Error fetching contributions:", error);

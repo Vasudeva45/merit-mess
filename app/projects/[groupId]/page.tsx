@@ -56,20 +56,21 @@ export default function ProjectRoom() {
   const params = useParams();
   const groupId = Number(params.groupId);
   const { user } = useUser();
-  const [projectData, setProjectData] = useState(null);
+  const [projectData, setProjectData] = useState<{ mentorId: string | null; members: { id: string; userId: string; role: string; status: string; profile?: { name: string } }[]; status?: string; discussions?: { title: string; content: string }[]; form?: { description: string; name: string }; tasks?: any[]; mentor?: any; files?: { isResource: boolean }[] } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("tasks");
-  const [newStatus, setNewStatus] = useState("active");
+  const [newStatus, setNewStatus] = useState<keyof typeof PROJECT_STATUSES>("active");
   const [isStatusUpdating, setIsStatusUpdating] = useState(false);
   const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
 
-  const [meetings, setMeetings] = useState([]);
-  const [resources, setResources] = useState([]);
+  const [meetings, setMeetings] = useState<{ creatorProfile: { name: string }; groupId: number; id: number; description: string | null; status: string; title: string; scheduledFor: Date; meetLink: string | null; createdBy: string; }[]>([]);
+  const [resources, setResources] = useState<{ name: string; description: string }[]>([]);
 
-  const isMentor = user?.sub && projectData?.mentorId === user.sub;
+  const isMentor = !!(user?.sub && projectData?.mentorId === user.sub);
   const isOwnerOrAdmin = projectData?.members.some(
-    (m) => m.userId === user?.sub && (m.role === "owner" || m.role === "admin")
+    (m: { userId: string; role: string }) =>
+      m.userId === user?.sub && (m.role === "owner" || m.role === "admin")
   );
 
   const fetchProjectData = useCallback(async () => {
@@ -80,21 +81,21 @@ export default function ProjectRoom() {
       ]);
 
       // Extract resources from discussions (assuming they're stored there)
-      const extractedResources = projectData.discussions
-        .filter((discussion) => discussion.title.startsWith("New Resource:"))
-        .map((discussion) => ({
+      const extractedResources = projectData?.discussions
+        ?.filter((discussion) => discussion.title.startsWith("New Resource:"))
+        ?.map((discussion) => ({
           name: discussion.title.replace("New Resource: ", ""),
           description: discussion.content,
-        }));
+        })) || [];
 
       setProjectData(projectData);
       setMeetings(meetingsData);
       setResources(extractedResources);
-      setNewStatus(projectData.status || "active");
+      setNewStatus((projectData?.status as keyof typeof PROJECT_STATUSES) || "active");
     } catch (err) {
       setError("Failed to load project details");
       toast({
-        title: "Error",
+        message: "Error",
         description: "Failed to load project details",
         variant: "destructive",
       });
@@ -107,7 +108,7 @@ export default function ProjectRoom() {
     if (!isMentor) return null;
     return (
       <MentorActions
-        groupId={groupId}
+        groupId={groupId.toString()}
         onUpdate={fetchProjectData}
         tasks={projectData?.tasks || []}
       />
@@ -122,7 +123,7 @@ export default function ProjectRoom() {
     // Only allow update if user is owner or admin
     if (!isOwnerOrAdmin) {
       toast({
-        title: "Unauthorized",
+        message: "Unauthorized",
         description: "Only project owners or admins can change project status",
         variant: "destructive",
       });
@@ -131,7 +132,7 @@ export default function ProjectRoom() {
 
     try {
       // Immediately update the local state
-      setNewStatus(selectedStatus);
+      setNewStatus(selectedStatus as keyof typeof PROJECT_STATUSES);
       setIsStatusUpdating(true);
 
       // Update the status on the server
@@ -146,11 +147,11 @@ export default function ProjectRoom() {
       });
     } catch (err) {
       // Revert the status if update fails
-      setNewStatus(projectData?.status || "active");
+      setNewStatus((projectData?.status as keyof typeof PROJECT_STATUSES) || "active");
 
       toast({
         title: "Error",
-        description: err.message || "Failed to update project status",
+        description: (err instanceof Error ? err.message : "Failed to update project status"),
         variant: "destructive",
       });
     } finally {
@@ -211,7 +212,7 @@ export default function ProjectRoom() {
             <p className="text-gray-500 text-xs sm:text-base inline-block">
               {getShortDescription()}
             </p>
-            {projectData?.form?.description?.length >
+            {(projectData?.form?.description?.length ?? 0) >
               MAX_DESCRIPTION_LENGTH && (
               <button
                 onClick={() => setIsDescriptionModalOpen(true)}
@@ -245,7 +246,7 @@ export default function ProjectRoom() {
                     className="ml-2 flex items-center text-xs"
                   >
                     <Badge
-                      variant={PROJECT_STATUSES[newStatus].variant}
+                      variant={PROJECT_STATUSES[newStatus].variant as "default" | "secondary" | "destructive" | "outline" | undefined}
                       className="mr-2 text-[0.6rem] sm:text-xs"
                     >
                       {PROJECT_STATUSES[newStatus].label}
@@ -266,10 +267,10 @@ export default function ProjectRoom() {
                         onSelect={() => updateProjectStatusHandler(status)}
                       >
                         <Badge
-                          variant={PROJECT_STATUSES[status].variant}
+                          variant={PROJECT_STATUSES[status as keyof typeof PROJECT_STATUSES].variant as "default" | "secondary" | "destructive" | "outline" | undefined}
                           className="mr-2 text-xs"
                         >
-                          {PROJECT_STATUSES[status].label}
+                          {PROJECT_STATUSES[status as keyof typeof PROJECT_STATUSES].label}
                         </Badge>
                       </DropdownMenuItem>
                     ))}
@@ -277,7 +278,7 @@ export default function ProjectRoom() {
               </DropdownMenu>
             ) : (
               <Badge
-                variant={PROJECT_STATUSES[newStatus].variant}
+                variant={PROJECT_STATUSES[newStatus].variant as "default" | "secondary" | "destructive" | "outline" | undefined}
                 className="ml-2 text-[0.6rem] sm:text-xs"
               >
                 {PROJECT_STATUSES[newStatus].label}

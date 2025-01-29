@@ -86,12 +86,18 @@ async function BuilderPage({
   const bouncedRate = 100 - submissionRate;
 
   // Fetch submissions with profile data for group management
-  const submissionsWithProfiles = await getFormSubmissionsWithProfiles(
+  const submissionsWithProfiles = (await getFormSubmissionsWithProfiles(
     Number(id)
-  );
+  )).map(submission => ({
+    ...submission,
+    createdAt: submission.createdAt.toISOString(),
+  }));
 
   // Fetch existing group data if it exists
   const existingGroup = await getProjectGroup(Number(id));
+  if (existingGroup) {
+    const existingGroupId = existingGroup.id.toString();
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -136,6 +142,7 @@ async function BuilderPage({
           <StatsCard
             title="Total visits"
             icon={<Zap className="w-6 h-6" />}
+            iconBg="bg-primary"
             helperText="All time form visits"
             value={visits.toLocaleString() ?? "0"}
             loading={false}
@@ -144,6 +151,7 @@ async function BuilderPage({
           <StatsCard
             title="Total submissions"
             icon={<Zap className="w-6 h-6" />}
+            iconBg="bg-primary"
             helperText="All time form submissions"
             value={submissions.toLocaleString() ?? "0"}
             loading={false}
@@ -152,6 +160,7 @@ async function BuilderPage({
           <StatsCard
             title="Submission rate"
             icon={<Zap className="w-6 h-6" />}
+            iconBg="bg-primary"
             helperText="Visits that result in form submission"
             value={submissionRate.toLocaleString() + "%" || "0"}
             loading={false}
@@ -160,6 +169,7 @@ async function BuilderPage({
           <StatsCard
             title="Bounce rate"
             icon={<Zap className="w-6 h-6" />}
+            iconBg="bg-primary"
             helperText="Visits that leave without interacting"
             value={bouncedRate.toLocaleString() + "%" || "0"}
             loading={false}
@@ -197,7 +207,7 @@ async function BuilderPage({
               </TabsContent>
               <TabsContent value="groups">
                 <SubmissionGroupManager
-                  formId={Number(id)}
+                  formId={id.toString()}
                   submissions={submissionsWithProfiles}
                   existingGroup={existingGroup}
                 />

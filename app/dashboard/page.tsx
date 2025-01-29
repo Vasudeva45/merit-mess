@@ -15,8 +15,36 @@ import {
 // Assuming these are imported from your actions
 import { getMyProjectGroups, getProjectInvites } from "@/actions/group";
 
+interface Project {
+  id: number;
+  form: {
+    name: string;
+    description: string;
+  };
+  members: {
+    id: number;
+    role: string;
+    userId: string;
+    status: string;
+    groupId: number;
+    joinedAt: Date;
+    profile: {
+      name: string;
+    };
+  }[];
+  status: string;
+}
+
+interface Invite {
+  // Define the structure of an invite if necessary
+}
+
 const InnovativeDashboard = () => {
-  const [projectData, setProjectData] = useState({
+  const [projectData, setProjectData] = useState<{
+    activeProjects: Project[];
+    completedProjects: Project[];
+    pendingInvites: Invite[];
+  }>({
     activeProjects: [],
     completedProjects: [],
     pendingInvites: [],

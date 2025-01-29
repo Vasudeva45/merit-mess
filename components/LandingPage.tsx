@@ -19,21 +19,33 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getPublicProjects } from "@/actions/group";
 
-const truncateDescription = (description, maxLength = 100) => {
+const truncateDescription = (description: string, maxLength = 100) => {
   if (description.length <= maxLength) return description;
   return description.substring(0, maxLength) + "...";
 };
 
+interface Project {
+  title: string;
+  description: string;
+  skills: string[];
+  teamSize: number;
+  impact: string;
+}
+
 const LandingPage = () => {
   const [activeTab, setActiveTab] = useState("projects");
-  const [publicProjects, setPublicProjects] = useState([]);
+  const [publicProjects, setPublicProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function fetchProjects() {
       try {
         const projects = await getPublicProjects();
-        setPublicProjects(projects);
+        const formattedProjects = projects.map(project => ({
+          ...project,
+          teamSize: Number(project.teamSize),
+        }));
+        setPublicProjects(formattedProjects);
         setIsLoading(false);
       } catch (error) {
         console.error("Failed to fetch projects", error);

@@ -48,9 +48,9 @@ export default function MentorProfilePage({
 
   const [mentor, setMentor] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [projectGroups, setProjectGroups] = useState([]);
-  const [selectedProjectGroup, setSelectedProjectGroup] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [projectGroups, setProjectGroups] = useState<{ id: number; name: string; form: { name: string; description: string; } }[]>([]);
+  const [selectedProjectGroup, setSelectedProjectGroup] = useState<number | null>(null);
   const [mentorshipMessage, setMentorshipMessage] = useState("");
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
 
@@ -98,7 +98,7 @@ export default function MentorProfilePage({
           setCanRate(ratingCheck.canRate);
           setHasRated(ratingCheck.hasRated);
           if (ratingCheck.hasRated) {
-            setUserRating(ratingCheck.existingRating);
+            setUserRating(ratingCheck.existingRating ?? 0);
           }
         } catch (ratingError) {
           console.error("Rating check error:", ratingError);
@@ -109,7 +109,11 @@ export default function MentorProfilePage({
           );
         }
       } catch (err) {
-        setError(err.message);
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError("An unknown error occurred");
+        }
         setLoading(false);
         showCustomToast(
           "Profile Error",
@@ -143,7 +147,7 @@ export default function MentorProfilePage({
         rating: userRating,
       });
 
-      setMentor((prev) => ({
+      setMentor((prev: any) => ({
         ...prev,
         mentorRating: result.averageRating,
       }));
@@ -156,10 +160,14 @@ export default function MentorProfilePage({
         "success"
       );
     } catch (err) {
-      if (err.message.includes("You cannot rate yourself")) {
+      if (err instanceof Error && err.message.includes("You cannot rate yourself")) {
         setRatingError("You cannot rate your own profile");
       } else {
-        showCustomToast("Rating Error", err.message, "error");
+        if (err instanceof Error) {
+          showCustomToast("Rating Error", err.message, "error");
+        } else {
+          showCustomToast("Rating Error", "An unknown error occurred", "error");
+        }
       }
     } finally {
       setIsRatingSubmitting(false);
@@ -255,13 +263,17 @@ export default function MentorProfilePage({
       );
     } catch (err) {
       if (
-        err.message === "A mentorship request for this project already exists"
+        (err instanceof Error && err.message === "A mentorship request for this project already exists")
       ) {
         setIsRequestDialogOpen(false);
         setIsExistingRequestModalOpen(true);
       } else {
         setIsRequestDialogOpen(false); // Close the dialog on any error
-        showCustomToast("Request Error", err.message, "error");
+        if (err instanceof Error) {
+          showCustomToast("Request Error", err.message, "error");
+        } else {
+          showCustomToast("Request Error", "An unknown error occurred", "error");
+        }
       }
     } finally {
       setIsRequestSubmitting(false);
@@ -381,7 +393,7 @@ export default function MentorProfilePage({
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            {mentor.mentorExpertise?.map((expertise, index) => (
+            {mentor.mentorExpertise?.map((expertise: string, index: number) => (
               <span
                 key={index}
                 className="px-3 py-1 bg-secondary rounded-full text-sm"
@@ -414,7 +426,7 @@ export default function MentorProfilePage({
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">
-              {mentor.certifications.map((cert, index) => (
+              {mentor.certifications.map((cert: string, index: number) => (
                 <li key={index} className="flex items-center gap-2">
                   <BookOpen className="h-4 w-4 text-muted-foreground" />
                   {cert}
@@ -432,7 +444,7 @@ export default function MentorProfilePage({
           </CardHeader>
           <CardContent>
             <div className="grid gap-4">
-              {mentor.mentoredProjects.map((project, index) => (
+              {mentor.mentoredProjects.map((project: { name: string; description?: string }, index: number) => (
                 <div key={index} className="p-4 bg-muted rounded-lg">
                   <h3 className="font-medium mb-2">{project.name}</h3>
                   {project.description && (

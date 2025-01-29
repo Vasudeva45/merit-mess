@@ -38,7 +38,13 @@ import { StatsCards } from "@/app/project/new/page";
 import { getProfile } from "@/actions/profile";
 import { Profile } from "@prisma/client";
 
-const NavLink = ({ href, children, className }) => {
+interface NavLinkProps {
+  href: string;
+  children: React.ReactNode;
+  className?: string;
+}
+
+const NavLink: React.FC<NavLinkProps> = ({ href, children, className }) => {
   const pathname = usePathname();
   const isActive = pathname === href;
 

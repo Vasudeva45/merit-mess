@@ -56,16 +56,46 @@ export default function ProjectRoom() {
   const params = useParams();
   const groupId = Number(params.groupId);
   const { user } = useUser();
-  const [projectData, setProjectData] = useState<{ mentorId: string | null; members: { id: string; userId: string; role: string; status: string; profile?: { name: string } }[]; status?: string; discussions?: { title: string; content: string }[]; form?: { description: string; name: string }; tasks?: any[]; mentor?: any; files?: { isResource: boolean }[] } | null>(null);
+  const [projectData, setProjectData] = useState<{
+    mentorId: string | null;
+    members: {
+      id: string;
+      userId: string;
+      role: string;
+      status: string;
+      profile?: { name: string };
+    }[];
+    status?: string;
+    discussions?: { title: string; content: string }[];
+    form?: { description: string; name: string };
+    tasks?: any[];
+    mentor?: any;
+    files?: { isResource: boolean }[];
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("tasks");
-  const [newStatus, setNewStatus] = useState<keyof typeof PROJECT_STATUSES>("active");
+  const [newStatus, setNewStatus] =
+    useState<keyof typeof PROJECT_STATUSES>("active");
   const [isStatusUpdating, setIsStatusUpdating] = useState(false);
   const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
 
-  const [meetings, setMeetings] = useState<{ creatorProfile: { name: string }; groupId: number; id: number; description: string | null; status: string; title: string; scheduledFor: Date; meetLink: string | null; createdBy: string; }[]>([]);
-  const [resources, setResources] = useState<{ name: string; description: string }[]>([]);
+  const [meetings, setMeetings] = useState<
+    {
+      creatorProfile: { name: string };
+      groupId: number;
+      id: number;
+      description: string | null;
+      status: string;
+      title: string;
+      scheduledFor: Date;
+      meetLink: string | null;
+      createdBy: string;
+    }[]
+  >([]);
+  const [resources, setResources] = useState<
+    { name: string; description: string }[]
+  >([]);
 
   const isMentor = !!(user?.sub && projectData?.mentorId === user.sub);
   const isOwnerOrAdmin = projectData?.members.some(
@@ -81,17 +111,20 @@ export default function ProjectRoom() {
       ]);
 
       // Extract resources from discussions (assuming they're stored there)
-      const extractedResources = projectData?.discussions
-        ?.filter((discussion) => discussion.title.startsWith("New Resource:"))
-        ?.map((discussion) => ({
-          name: discussion.title.replace("New Resource: ", ""),
-          description: discussion.content,
-        })) || [];
+      const extractedResources =
+        projectData?.discussions
+          ?.filter((discussion) => discussion.title.startsWith("New Resource:"))
+          ?.map((discussion) => ({
+            name: discussion.title.replace("New Resource: ", ""),
+            description: discussion.content,
+          })) || [];
 
       setProjectData(projectData);
       setMeetings(meetingsData);
       setResources(extractedResources);
-      setNewStatus((projectData?.status as keyof typeof PROJECT_STATUSES) || "active");
+      setNewStatus(
+        (projectData?.status as keyof typeof PROJECT_STATUSES) || "active"
+      );
     } catch (err) {
       setError("Failed to load project details");
       toast({
@@ -147,11 +180,16 @@ export default function ProjectRoom() {
       });
     } catch (err) {
       // Revert the status if update fails
-      setNewStatus((projectData?.status as keyof typeof PROJECT_STATUSES) || "active");
+      setNewStatus(
+        (projectData?.status as keyof typeof PROJECT_STATUSES) || "active"
+      );
 
       toast({
         title: "Error",
-        description: (err instanceof Error ? err.message : "Failed to update project status"),
+        description:
+          err instanceof Error
+            ? err.message
+            : "Failed to update project status",
         variant: "destructive",
       });
     } finally {
@@ -246,7 +284,14 @@ export default function ProjectRoom() {
                     className="ml-2 flex items-center text-xs"
                   >
                     <Badge
-                      variant={PROJECT_STATUSES[newStatus].variant as "default" | "secondary" | "destructive" | "outline" | undefined}
+                      variant={
+                        PROJECT_STATUSES[newStatus].variant as
+                          | "default"
+                          | "secondary"
+                          | "destructive"
+                          | "outline"
+                          | undefined
+                      }
                       className="mr-2 text-[0.6rem] sm:text-xs"
                     >
                       {PROJECT_STATUSES[newStatus].label}
@@ -267,10 +312,23 @@ export default function ProjectRoom() {
                         onSelect={() => updateProjectStatusHandler(status)}
                       >
                         <Badge
-                          variant={PROJECT_STATUSES[status as keyof typeof PROJECT_STATUSES].variant as "default" | "secondary" | "destructive" | "outline" | undefined}
+                          variant={
+                            PROJECT_STATUSES[
+                              status as keyof typeof PROJECT_STATUSES
+                            ].variant as
+                              | "default"
+                              | "secondary"
+                              | "destructive"
+                              | "outline"
+                              | undefined
+                          }
                           className="mr-2 text-xs"
                         >
-                          {PROJECT_STATUSES[status as keyof typeof PROJECT_STATUSES].label}
+                          {
+                            PROJECT_STATUSES[
+                              status as keyof typeof PROJECT_STATUSES
+                            ].label
+                          }
                         </Badge>
                       </DropdownMenuItem>
                     ))}
@@ -278,7 +336,14 @@ export default function ProjectRoom() {
               </DropdownMenu>
             ) : (
               <Badge
-                variant={PROJECT_STATUSES[newStatus].variant as "default" | "secondary" | "destructive" | "outline" | undefined}
+                variant={
+                  PROJECT_STATUSES[newStatus].variant as
+                    | "default"
+                    | "secondary"
+                    | "destructive"
+                    | "outline"
+                    | undefined
+                }
                 className="ml-2 text-[0.6rem] sm:text-xs"
               >
                 {PROJECT_STATUSES[newStatus].label}

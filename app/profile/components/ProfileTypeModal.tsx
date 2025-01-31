@@ -436,6 +436,35 @@ const ProfileTypeModal = ({ isOpen, onClose, onTypeSelect, user }) => {
               formData={formData}
               error={error}
               handleInputChange={handleInputChange}
+              handleProjectChange={(index, field, value) => {
+                const updatedProjects = [...formData.ongoing_projects];
+                updatedProjects[index] = {
+                  ...updatedProjects[index],
+                  [field]: value,
+                };
+                setFormData({ ...formData, ongoing_projects: updatedProjects });
+              }}
+              addProject={() => {
+                setFormData({
+                  ...formData,
+                  ongoing_projects: [
+                    ...formData.ongoing_projects,
+                    {
+                      name: "",
+                      description: "",
+                      status: PROJECT_STATUS.PLANNING,
+                    },
+                  ],
+                });
+              }}
+              removeProject={(index) => {
+                setFormData({
+                  ...formData,
+                  ongoing_projects: formData.ongoing_projects.filter(
+                    (_, idx) => idx !== index
+                  ),
+                });
+              }}
               PROJECT_STATUS={PROJECT_STATUS}
             />
           )}

@@ -1,37 +1,26 @@
 import { GitHubVerification } from "./github";
-import { DocumentVerification } from "./document";
-import { IdentityVerification } from "./identity";
 import prisma from "@/lib/prisma";
 
 export interface VerificationResult {
   success: boolean;
   status: string;
   details: {
-    github?: any;
-    documents?: any;
-    identity?: any;
+    github: any;
   };
   overallScore: number;
 }
 
 export class MentorVerificationService {
   private githubVerifier: GitHubVerification;
-  private documentVerifier: DocumentVerification;
-  private identityVerifier: IdentityVerification;
 
   constructor() {
     this.githubVerifier = new GitHubVerification(process.env.GITHUB_TOKEN!);
-    this.documentVerifier = new DocumentVerification();
-    this.identityVerifier = new IdentityVerification();
   }
 
   async verifyMentor(
     userId: string,
     data: {
       githubUsername?: string;
-      documents?: Array<{ buffer: Buffer; type: string }>;
-      email?: string;
-      phoneNumber?: string;
     }
   ): Promise<VerificationResult> {
     try {
@@ -49,21 +38,11 @@ export class MentorVerificationService {
         });
       }
 
-      // Perform verifications in parallel
-      const [githubResult, documentsResult, identityResult] = await Promise.all(
-        [
-          this.verifyGitHub(data.githubUsername),
-          this.verifyDocuments(data.documents),
-          this.verifyIdentity(data.email, data.phoneNumber),
-        ]
-      );
+      // Perform GitHub verification
+      const githubResult = await this.verifyGitHub(data.githubUsername);
 
       // Calculate overall verification score
-      const overallScore = this.calculateOverallScore({
-        github: githubResult,
-        documents: documentsResult,
-        identity: identityResult,
-      });
+      const overallScore = this.calculateOverallScore(githubResult);
 
       // Determine verification status
       const status = this.determineVerificationStatus(overallScore);
@@ -75,9 +54,6 @@ export class MentorVerificationService {
           status,
           githubVerified: githubResult.verified,
           githubData: githubResult,
-          documentsVerified: documentsResult.verified,
-          documents: documentsResult.results,
-          identityVerified: identityResult.verified,
           verificationDate: new Date(),
         },
       });
@@ -98,8 +74,6 @@ export class MentorVerificationService {
         status,
         details: {
           github: githubResult,
-          documents: documentsResult,
-          identity: identityResult,
         },
         overallScore,
       };
@@ -116,54 +90,8 @@ export class MentorVerificationService {
     return await this.githubVerifier.verifyProfile(username);
   }
 
-  private async verifyDocuments(
-    documents?: Array<{ buffer: Buffer; type: string }>
-  ) {
-    if (!documents?.length) {
-      return { verified: false, results: [] };
-    }
-    return await this.documentVerifier.validateMultipleDocuments(documents);
-  }
-
-  private async verifyIdentity(email?: string, phoneNumber?: string) {
-    const results = await Promise.all([
-      email ? this.identityVerifier.sendEmailVerification(email) : false,
-      phoneNumber
-        ? this.identityVerifier.verifyPhoneNumber(phoneNumber)
-        : false,
-    ]);
-
-    return {
-      verified: results.some((result) => result),
-      methods: {
-        email: results[0],
-        phone: results[1],
-      },
-    };
-  }
-
-  private calculateOverallScore(verifications: {
-    github: any;
-    documents: any;
-    identity: any;
-  }): number {
-    const weights = {
-      github: 0.4,
-      documents: 0.4,
-      identity: 0.2,
-    };
-
-    const scores = {
-      github: verifications.github.verified ? verifications.github.score : 0,
-      documents: verifications.documents.verified ? 100 : 0,
-      identity: verifications.identity.verified ? 100 : 0,
-    };
-
-    return Math.round(
-      scores.github * weights.github +
-        scores.documents * weights.documents +
-        scores.identity * weights.identity
-    );
+  private calculateOverallScore(githubResult: any): number {
+    return Math.round(githubResult.verified ? githubResult.score : 0);
   }
 
   private determineVerificationStatus(score: number): string {

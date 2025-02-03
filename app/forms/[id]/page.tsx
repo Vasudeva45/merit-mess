@@ -27,10 +27,9 @@ import { Zap, Users as UserIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import SubmissionGroupManager from "@/components/groupRelated/SubmissionGroupManager";
-import { Button } from "@/components/ui/button";
 import { StatusButton } from "@/components/FormRelated/StatusButton";
 import { Skeleton } from "@/components/ui/skeleton";
-
+import { Suspense } from "react";
 // Separate client-side component for description
 import DescriptionExpander from "@/components/FormRelated/DescriptionExpander";
 
@@ -82,7 +81,7 @@ async function BuilderPage({
   }
 
   const { visits, submissions } = form;
-  let submissionRate = visits > 0 ? (submissions / visits) * 100 : 0;
+  const submissionRate = visits > 0 ? (submissions / visits) * 100 : 0;
   const bouncedRate = 100 - submissionRate;
 
   // Fetch submissions with profile data for group management
@@ -96,7 +95,7 @@ async function BuilderPage({
   // Fetch existing group data if it exists
   const existingGroup = await getProjectGroup(Number(id));
   if (existingGroup) {
-    const existingGroupId = existingGroup.id.toString();
+    // existingGroupId is not used, so we don't need to assign it
   }
 
   return (
@@ -356,7 +355,14 @@ function RowCell({ type, value }: { type: ElementsType; value: string }) {
 }
 
 // Wrap the page with Suspense for loading state
-export default function BuilderPageWrapper(props: any) {
+
+interface BuilderPageWrapperProps {
+  params: {
+    id: string;
+  };
+}
+
+export default function BuilderPageWrapper(props: BuilderPageWrapperProps) {
   return (
     <Suspense fallback={<BuilderPageLoading />}>
       <BuilderPage {...props} />

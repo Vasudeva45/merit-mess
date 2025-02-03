@@ -35,9 +35,7 @@ interface Project {
   status: string;
 }
 
-interface Invite {
-  // Define the structure of an invite if necessary
-}
+type Invite = unknown;
 
 const InnovativeDashboard = () => {
   const [projectData, setProjectData] = useState<{

@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Only create/update verification record if all requirements are met
-      const verification = await prisma.mentorVerification.upsert({
+      const verification = await prisma.MentorVerification.upsert({
         where: { userId: session.user.sub },
         update: {
           githubUsername,
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
         await createOrUpdateProfile(processedProfile, session.user.sub);
       }
 
-      const cookieStore = cookies();
+      const cookieStore = await cookies();
       cookieStore.set(
         "github_verification",
         JSON.stringify({

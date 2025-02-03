@@ -4,11 +4,24 @@ import { Button } from "@/components/ui/button";
 import { GraduationCap } from "lucide-react";
 import Link from "next/link";
 
+interface Mentor {
+  imageUrl?: string;
+  name: string;
+  title?: string;
+  userId: string;
+}
+
+interface MentorCardProps {
+  mentor: Mentor;
+  isMentor: boolean;
+  projectHasMentor?: boolean;
+}
+
 export default function MentorCard({
   mentor,
   isMentor,
   projectHasMentor = false,
-}) {
+}: MentorCardProps) {
   return (
     <Card className="w-full">
       <CardHeader className="pb-2">

@@ -45,7 +45,7 @@ export const StatusButton = ({
         type: "error",
         message: {
           title: "Status Update Failed",
-          details: error?.message || "Failed to update form status",
+          details: (error as any)?.message || "Failed to update form status",
         },
       });
     } finally {

@@ -24,7 +24,7 @@ const CustomToast = ({ message, type, onClose }: ToastProps) => {
   return (
     <div
       className={`
-      fixed top-4 right-4 z-50 
+      fixed top-4 right-4 z-50 s
       min-w-[320px] max-w-md 
       rounded-lg shadow-lg 
       transform transition-all duration-300 ease-in-out

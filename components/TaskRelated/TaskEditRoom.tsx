@@ -32,7 +32,6 @@ import {
   Flag,
   MessageSquare,
   Loader2,
-  Zap,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -153,13 +152,13 @@ const TaskEditRoom: React.FC<TaskEditRoomProps> = ({
       // Add the comment
       const addedComment = await addComment({
         content: newComment,
-        taskId: task.id,
+        taskId: parseInt(task.id, 10),
       });
 
       // Update the task comments
       onUpdate({
         ...task,
-        comments: [...task.comments, addedComment],
+        comments: [...(task.comments || []), addedComment],
       });
 
       // Clear the comment input
@@ -247,7 +246,7 @@ const TaskEditRoom: React.FC<TaskEditRoomProps> = ({
                     <h3 className="text-lg font-medium">Comments</h3>
                   </div>
                   <div className="space-y-4 max-h-40 overflow-y-auto p-2 border rounded-md custom-scrollbar">
-                    {task?.comments?.map(
+                    {(task?.comments || []).map(
                       (
                         comment: {
                           author: { name: string };

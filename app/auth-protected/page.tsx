@@ -7,7 +7,13 @@ import Image from "next/image";
 const AuthProtected: NextPage = withPageAuthRequired(
   async () => {
     const session = await getSession();
-    const user: any = session?.user;
+    interface User {
+      picture: string;
+      name: string;
+      email: string;
+    }
+
+    const user: User = session?.user as User;
     return (
       <div className="content-layout px-44">
         <Image src={user.picture} alt={user.name} />

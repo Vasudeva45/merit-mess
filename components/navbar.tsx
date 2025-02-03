@@ -19,6 +19,7 @@ import {
   Menu,
   BarChart,
   ChevronDown,
+  LogOutIcon,
 } from "lucide-react";
 import {
   NavigationMenu,

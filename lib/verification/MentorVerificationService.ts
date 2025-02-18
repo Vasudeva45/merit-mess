@@ -5,7 +5,7 @@ export interface VerificationResult {
   success: boolean;
   status: string;
   details: {
-    github: any;
+    github: { verified: boolean; score: number };
   };
   overallScore: number;
 }
@@ -87,10 +87,11 @@ export class MentorVerificationService {
     if (!username) {
       return { verified: false, score: 0 };
     }
-    return await this.githubVerifier.verifyProfile(username);
+    const verificationCode = ""; // Provide the appropriate verification code here
+    return await this.githubVerifier.verifyProfile(username, verificationCode);
   }
 
-  private calculateOverallScore(githubResult: any): number {
+  private calculateOverallScore(githubResult: { verified: boolean; score: number }): number {
     return Math.round(githubResult.verified ? githubResult.score : 0);
   }
 

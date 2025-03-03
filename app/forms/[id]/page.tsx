@@ -29,7 +29,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import SubmissionGroupManager from "@/components/groupRelated/SubmissionGroupManager";
 import { StatusButton } from "@/components/FormRelated/StatusButton";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Suspense } from "react";
 // Separate client-side component for description
 import DescriptionExpander from "@/components/FormRelated/DescriptionExpander";
 
@@ -85,9 +84,9 @@ async function BuilderPage({
   const bouncedRate = 100 - submissionRate;
 
   // Fetch submissions with profile data for group management
-  const submissionsWithProfiles = (await getFormSubmissionsWithProfiles(
-    Number(id)
-  )).map(submission => ({
+  const submissionsWithProfiles = (
+    await getFormSubmissionsWithProfiles(Number(id))
+  ).map((submission) => ({
     ...submission,
     createdAt: submission.createdAt.toISOString(),
   }));

@@ -2,7 +2,19 @@ This is a collabrative project made by me and my friend so it is being forked fr
 
 
 ![image](https://github.com/user-attachments/assets/ce1f5094-d9de-4469-8b7d-8713391445d6)
-Welcome to the repository for the Project Management Real-Time Website. This application provides an efficient platform to manage projects, connect with mentors, track achievements, and monitor your project progress, all in real time.
+Welcome to the repository for the MeritMess - Project Management Real-Time Website. This application provides an efficient platform to manage projects, connect with mentors, track achievements, and monitor your project progress, all in real time.
+
+MeritMess is a collaborative platform designed for young individuals (13-25 years) to turn 
+their ideas into reality through project management, team collaboration, and 
+mentorship. Think of it as a beginner-friendly GitHub meets Trello, with built-in 
+mentorship. 
+
+Why ProGrow? 
+• Students struggle to move from ideas to actual projects 
+• Hard to find team members with similar interests 
+• Limited access to experienced mentors 
+• Existing platforms are too complex for beginners 
+• Need for practical project experience 
 ----------------------------------------------------------------
 Table of Contents:-
 

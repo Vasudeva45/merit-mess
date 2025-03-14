@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { getSession } from "@auth0/nextjs-auth0";
 import { v4 as uuidv4 } from "uuid";
 import { EmailService } from "@/actions/emailService";
+import { cache } from "react";
 
 interface CreateGroupInput {
   formId: number;
@@ -13,7 +14,8 @@ interface CreateGroupInput {
   groupId?: number;
 }
 
-export async function createProjectGroup(input: CreateGroupInput) {
+// Cache the session to avoid multiple calls within the same request
+const getAuthenticatedUser = cache(async () => {
   const session = await getSession();
   const user = session?.user;
 
@@ -21,16 +23,44 @@ export async function createProjectGroup(input: CreateGroupInput) {
     throw new Error("Unauthorized");
   }
 
+  return user;
+});
+
+// Helper function to verify form ownership
+async function verifyFormOwnership(formId: number, userId: string) {
   const form = await prisma.form.findUnique({
     where: {
-      id: input.formId,
-      userId: user.sub,
+      id: formId,
+      userId,
     },
   });
 
   if (!form) {
     throw new Error("Form not found or unauthorized");
   }
+
+  return form;
+}
+
+// Helper function to send invitations to members
+async function sendMemberInvitations(members, group) {
+  const pendingMembers = members.filter(
+    (member) => member.status === "pending" && member.profile.email
+  );
+
+  if (pendingMembers.length === 0) return;
+
+  // Use Promise.all for parallel processing
+  await Promise.all(
+    pendingMembers.map((member) =>
+      EmailService.sendTeamInvitation(member.profile, group)
+    )
+  );
+}
+
+export async function createProjectGroup(input: CreateGroupInput) {
+  const user = await getAuthenticatedUser();
+  await verifyFormOwnership(input.formId, user.sub);
 
   // If updating an existing group
   if (input.groupId) {
@@ -74,13 +104,7 @@ export async function createProjectGroup(input: CreateGroupInput) {
       },
     });
 
-    // Send invitation emails to new members
-    for (const member of updatedGroup.members) {
-      if (member.status === "pending" && member.profile.email) {
-        await EmailService.sendTeamInvitation(member.profile, updatedGroup);
-      }
-    }
-
+    await sendMemberInvitations(updatedGroup.members, updatedGroup);
     return updatedGroup;
   }
 
@@ -118,28 +142,15 @@ export async function createProjectGroup(input: CreateGroupInput) {
     },
   });
 
-  // Send invitation emails to all pending members
-  for (const member of createdGroup.members) {
-    if (member.status === "pending" && member.profile.email) {
-      await EmailService.sendTeamInvitation(member.profile, createdGroup);
-    }
-  }
-
+  await sendMemberInvitations(createdGroup.members, createdGroup);
   return createdGroup;
 }
 
 export async function getProjectGroup(formId: number) {
-  const session = await getSession();
-  const user = session?.user;
+  const user = await getAuthenticatedUser();
 
-  if (!user?.sub) {
-    throw new Error("Unauthorized");
-  }
-
-  return await prisma.projectGroup.findUnique({
-    where: {
-      formId: formId,
-    },
+  return prisma.projectGroup.findUnique({
+    where: { formId },
     include: {
       members: {
         include: {
@@ -162,25 +173,14 @@ export async function updateMemberStatus(
   memberId: number,
   status: "accepted" | "rejected"
 ) {
-  const session = await getSession();
-  const user = session?.user;
-
-  if (!user?.sub) {
-    throw new Error("Unauthorized");
-  }
+  const user = await getAuthenticatedUser();
 
   const group = await prisma.projectGroup.findUnique({
     where: {
       id: groupId,
       ownerId: user.sub,
     },
-    include: {
-      members: {
-        include: {
-          profile: true,
-        },
-      },
-    },
+    select: { id: true, name: true },
   });
 
   if (!group) {
@@ -188,15 +188,9 @@ export async function updateMemberStatus(
   }
 
   const updatedMember = await prisma.groupMember.update({
-    where: {
-      id: memberId,
-    },
-    data: {
-      status,
-    },
-    include: {
-      profile: true,
-    },
+    where: { id: memberId },
+    data: { status },
+    include: { profile: true },
   });
 
   // Send status update notification
@@ -213,28 +207,11 @@ export async function updateMemberStatus(
 }
 
 export async function getFormSubmissionsWithProfiles(formId: number) {
-  const session = await getSession();
-  const user = session?.user;
+  const user = await getAuthenticatedUser();
+  await verifyFormOwnership(formId, user.sub);
 
-  if (!user?.sub) {
-    throw new Error("Unauthorized");
-  }
-
-  const form = await prisma.form.findUnique({
-    where: {
-      id: formId,
-      userId: user.sub,
-    },
-  });
-
-  if (!form) {
-    throw new Error("Form not found or unauthorized");
-  }
-
-  return await prisma.formSubmissions.findMany({
-    where: {
-      formId: formId,
-    },
+  return prisma.formSubmissions.findMany({
+    where: { formId },
     include: {
       profile: {
         select: {
@@ -248,21 +225,14 @@ export async function getFormSubmissionsWithProfiles(formId: number) {
   });
 }
 
-export async function getProjectInvites() {
-  const session = await getSession();
-  const user = session?.user;
+export const getProjectInvites = cache(async () => {
+  const user = await getAuthenticatedUser();
 
-  if (!user?.sub) {
-    throw new Error("Unauthorized");
-  }
-
-  const pendingInvites = await prisma.groupMember.findMany({
+  return prisma.groupMember.findMany({
     where: {
       userId: user.sub,
       status: "pending",
-      NOT: {
-        role: "owner",
-      },
+      NOT: { role: "owner" },
     },
     include: {
       group: {
@@ -277,19 +247,12 @@ export async function getProjectInvites() {
       },
     },
   });
+});
 
-  return pendingInvites;
-}
+export const getMyProjectGroups = cache(async () => {
+  const user = await getAuthenticatedUser();
 
-export async function getMyProjectGroups() {
-  const session = await getSession();
-  const user = session?.user;
-
-  if (!user?.sub) {
-    throw new Error("Unauthorized");
-  }
-
-  return await prisma.projectGroup.findMany({
+  return prisma.projectGroup.findMany({
     where: {
       members: {
         some: {
@@ -302,9 +265,7 @@ export async function getMyProjectGroups() {
       members: {
         include: {
           profile: {
-            select: {
-              name: true,
-            },
+            select: { name: true },
           },
         },
       },
@@ -316,7 +277,7 @@ export async function getMyProjectGroups() {
       },
     },
   });
-}
+});
 
 export async function updateGroupMember({
   groupId,
@@ -327,25 +288,14 @@ export async function updateGroupMember({
   userId: string;
   action: "remove" | "update";
 }) {
-  const session = await getSession();
-  const user = session?.user;
-
-  if (!user?.sub) {
-    throw new Error("Unauthorized");
-  }
+  const user = await getAuthenticatedUser();
 
   const group = await prisma.projectGroup.findUnique({
     where: {
       id: groupId,
       ownerId: user.sub,
     },
-    include: {
-      members: {
-        include: {
-          profile: true,
-        },
-      },
-    },
+    select: { id: true, name: true },
   });
 
   if (!group) {
@@ -359,10 +309,7 @@ export async function updateGroupMember({
     });
 
     const result = await prisma.groupMember.deleteMany({
-      where: {
-        groupId,
-        userId,
-      },
+      where: { groupId, userId },
     });
 
     // Send removal notification if member has an email
@@ -379,14 +326,12 @@ export async function updateGroupMember({
   }
 }
 
-export async function getPublicProjects() {
+export const getPublicProjects = cache(async () => {
   const projects = await prisma.projectGroup.findMany({
     where: {
       form: {
         published: true,
-        NOT: {
-          status: "closed",
-        },
+        NOT: { status: "closed" },
       },
     },
     include: {
@@ -399,9 +344,7 @@ export async function getPublicProjects() {
         },
       },
       members: {
-        select: {
-          role: true,
-        },
+        select: { role: true },
       },
     },
     orderBy: {
@@ -417,4 +360,4 @@ export async function getPublicProjects() {
     teamSize: `${project.members.length} members`,
     impact: "Creating meaningful project impact",
   }));
-}
+});

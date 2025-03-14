@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { scheduleMeeting, shareResource } from "@/actions/task";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
+import CustomToast from "../Toast/custom-toast";
 
 interface MentorActionsProps {
   groupId: number;
@@ -19,7 +21,11 @@ interface MentorActionsProps {
   tasks: any[];
 }
 
-export default function MentorActions({ groupId, onUpdate, tasks }: MentorActionsProps) {
+export default function MentorActions({
+  groupId,
+  onUpdate,
+  tasks,
+}: MentorActionsProps) {
   const [meetingDialogOpen, setMeetingDialogOpen] = useState(false);
   const [resourceDialogOpen, setResourceDialogOpen] = useState(false);
   const [meetingDate, setMeetingDate] = useState<Date | undefined>(undefined);
@@ -27,6 +33,13 @@ export default function MentorActions({ groupId, onUpdate, tasks }: MentorAction
   const [meetingDesc, setMeetingDesc] = useState("");
   const [meetingLink, setMeetingLink] = useState("");
   const [resourceType, setResourceType] = useState("credentials");
+  const [isSchedulingMeeting, setIsSchedulingMeeting] = useState(false);
+  const [isSharingResource, setIsSharingResource] = useState(false);
+  const [customToast, setCustomToast] = useState<{
+    show: boolean;
+    message: { title: string; details: string };
+    type: "success" | "error";
+  }>({ show: false, message: { title: "", details: "" }, type: "success" });
   const [resource, setResource] = useState({
     name: "",
     description: "",
@@ -45,18 +58,30 @@ export default function MentorActions({ groupId, onUpdate, tasks }: MentorAction
         return;
       }
 
-      await scheduleMeeting(groupId, {
+      setIsSchedulingMeeting(true);
+
+      await scheduleMeeting(Number(groupId), {
         title: meetingTitle,
         scheduledFor: meetingDate,
         description: meetingDesc,
         meetLink: meetingLink,
       });
 
-      toast({
-        title: "Success",
-        description: "Team meeting scheduled successfully",
+      // Show custom toast
+      setCustomToast({
+        show: true,
+        message: {
+          title: "Meeting Scheduled",
+          details: `Team meeting "${meetingTitle}" has been successfully scheduled for ${meetingDate.toLocaleDateString()}.`,
+        },
+        type: "success",
       });
+
       setMeetingDialogOpen(false);
+      setMeetingTitle("");
+      setMeetingDesc("");
+      setMeetingLink("");
+      setMeetingDate(undefined);
       onUpdate?.();
     } catch (error) {
       toast({
@@ -64,6 +89,8 @@ export default function MentorActions({ groupId, onUpdate, tasks }: MentorAction
         description: "Failed to schedule meeting",
         variant: "destructive",
       });
+    } finally {
+      setIsSchedulingMeeting(false);
     }
   };
 
@@ -78,22 +105,36 @@ export default function MentorActions({ groupId, onUpdate, tasks }: MentorAction
         return;
       }
 
+      setIsSharingResource(true);
+
       // Create a discussion to share the resource
-      await shareResource(groupId, {
+      await shareResource(Number(groupId), {
         name: resource.name,
         url: resource.url || "",
         type: resourceType,
         description: JSON.stringify({
           ...resource,
-          type: resourceType
-        })
+          type: resourceType,
+        }),
       });
 
-      toast({
-        title: "Success",
-        description: "Resource shared successfully",
+      // Show custom toast
+      setCustomToast({
+        show: true,
+        message: {
+          title: "Resource Shared",
+          details: `Resource "${resource.name}" has been successfully shared with the team.`,
+        },
+        type: "success",
       });
+
       setResourceDialogOpen(false);
+      setResource({
+        name: "",
+        description: "",
+        credentials: "",
+        url: "",
+      });
       onUpdate?.();
     } catch (error) {
       toast({
@@ -101,7 +142,13 @@ export default function MentorActions({ groupId, onUpdate, tasks }: MentorAction
         description: "Failed to share resource",
         variant: "destructive",
       });
+    } finally {
+      setIsSharingResource(false);
     }
+  };
+
+  const handleCloseToast = () => {
+    setCustomToast({ ...customToast, show: false });
   };
 
   return (
@@ -113,6 +160,14 @@ export default function MentorActions({ groupId, onUpdate, tasks }: MentorAction
       <Button variant="outline" onClick={() => setResourceDialogOpen(true)}>
         Share Resources
       </Button>
+
+      {customToast.show && (
+        <CustomToast
+          message={customToast.message}
+          type={customToast.type}
+          onClose={handleCloseToast}
+        />
+      )}
 
       <Dialog open={meetingDialogOpen} onOpenChange={setMeetingDialogOpen}>
         <DialogContent>
@@ -144,7 +199,19 @@ export default function MentorActions({ groupId, onUpdate, tasks }: MentorAction
               onSelect={setMeetingDate}
               className="rounded-md border"
             />
-            <Button onClick={handleScheduleMeeting}>Schedule Meeting</Button>
+            <Button
+              onClick={handleScheduleMeeting}
+              disabled={isSchedulingMeeting}
+            >
+              {isSchedulingMeeting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Scheduling...
+                </>
+              ) : (
+                "Schedule Meeting"
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -158,10 +225,13 @@ export default function MentorActions({ groupId, onUpdate, tasks }: MentorAction
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <label htmlFor="resourceType" className="block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="resourceType"
+              className="block text-sm font-medium text-gray-700"
+            >
               Resource Type
             </label>
-            <select 
+            <select
               id="resourceType"
               value={resourceType}
               onChange={(e) => setResourceType(e.target.value)}
@@ -203,7 +273,16 @@ export default function MentorActions({ groupId, onUpdate, tasks }: MentorAction
                 setResource({ ...resource, description: e.target.value })
               }
             />
-            <Button onClick={handleShareResource}>Share Resource</Button>
+            <Button onClick={handleShareResource} disabled={isSharingResource}>
+              {isSharingResource ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sharing...
+                </>
+              ) : (
+                "Share Resource"
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

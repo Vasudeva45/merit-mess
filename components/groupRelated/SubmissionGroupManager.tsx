@@ -78,7 +78,7 @@ const SubmissionGroupManager: React.FC<SubmissionGroupManagerProps> = ({
       details: string;
     };
   }
-  
+
   const [toast, setToast] = useState<Toast | null>(null);
   const [currentGroup, setCurrentGroup] = useState(existingGroup);
   const [localSubmissions, setLocalSubmissions] = useState(submissions);
@@ -96,7 +96,8 @@ const SubmissionGroupManager: React.FC<SubmissionGroupManagerProps> = ({
   const uniqueSubmissions = useMemo(() => {
     const userMap = new Map();
     const sortedSubmissions = [...localSubmissions].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
     sortedSubmissions.forEach((submission) => {
@@ -121,10 +122,13 @@ const SubmissionGroupManager: React.FC<SubmissionGroupManagerProps> = ({
     const fetchProfiles = async () => {
       try {
         const fetchedProfiles = await getProfilesByIds(userIds);
-        const profileMap = fetchedProfiles.reduce((acc: { [key: string]: any }, profile) => {
-          acc[profile.userId] = profile;
-          return acc;
-        }, {});
+        const profileMap = fetchedProfiles.reduce(
+          (acc: { [key: string]: any }, profile) => {
+            acc[profile.userId] = profile;
+            return acc;
+          },
+          {}
+        );
         setProfiles(profileMap);
       } catch (error: any) {
         console.error("Error fetching profiles:", error);

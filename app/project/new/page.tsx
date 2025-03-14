@@ -1,30 +1,22 @@
 "use client";
 
 import { GetForms, GetFormStats } from "@/actions/form";
-import CreateFormBtn from "@/components/smallComponents/CreateFormBtn";
+import FormStatusTabs from "@/components/FormRelated/FormStatusTabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { Form } from "@prisma/client";
 import { formatDistance } from "date-fns";
+import { Layers, Rows4, Users, Zap } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ReactNode, Suspense, useEffect, useState } from "react";
-import { FaEdit, FaWpforms } from "react-icons/fa";
 import { BiRightArrowAlt } from "react-icons/bi";
-import { Users, ChevronRight, Zap, Layers, Rows4 } from "lucide-react";
-import FormStatusTabs from "@/components/FormRelated/FormStatusTabs";
-import { LuView } from "react-icons/lu";
+import { FaWpforms } from "react-icons/fa";
 import { HiCursorClick } from "react-icons/hi";
+import { LuView } from "react-icons/lu";
 import { TbArrowBounce } from "react-icons/tb";
 
 export default function NewProjectPage() {
@@ -74,7 +66,6 @@ export default function NewProjectPage() {
               <Rows4 className="w-8 h-8 text-primary" />
               <h2 className="text-3xl font-bold tracking-tight">Your Forms</h2>
             </div>
-            <CreateFormBtn />
           </div>
           <Suspense
             fallback={

@@ -2,23 +2,34 @@
 
 import prisma from "@/lib/prisma";
 import { getSession } from "@auth0/nextjs-auth0";
-import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { EmailService } from "@/actions/emailService";
+import { cache } from "react";
 
-// Validation Schema
+// Validation Schemas
 const MentorshipRequestSchema = z.object({
   mentorId: z.string(),
   projectGroupId: z.number(),
   message: z.string().optional(),
 });
 
-export async function createMentorshipRequest(input: {
-  mentorId: string;
-  projectGroupId: number;
-  message?: string;
-}) {
+const MentorRatingSchema = z.object({
+  mentorId: z.string(),
+  rating: z.number().min(1).max(5),
+});
+
+// Helper types
+type ProjectGroup = {
+  name: string;
+  form?: {
+    name: string;
+    description: string;
+  };
+};
+
+// Cached Auth Helper
+const getAuthenticatedUser = cache(async () => {
   const session = await getSession();
   const user = session?.user;
 
@@ -26,39 +37,90 @@ export async function createMentorshipRequest(input: {
     throw new Error("Unauthorized");
   }
 
+  return user;
+});
+
+// Cached DB Helpers
+const getProjectWithMentor = cache(async (projectGroupId: number) => {
+  return prisma.projectGroup.findUnique({
+    where: { id: projectGroupId },
+    select: {
+      mentorId: true,
+      mentor: { select: { name: true } },
+    },
+  });
+});
+
+const checkProjectOwnership = cache(
+  async (userId: string, projectGroupId: number) => {
+    return prisma.projectGroup.findFirst({
+      where: {
+        id: projectGroupId,
+        members: {
+          some: {
+            userId: userId,
+            role: "owner",
+            status: "accepted",
+          },
+        },
+      },
+    });
+  }
+);
+
+const getPendingMentorshipRequest = cache(async (projectGroupId: number) => {
+  return prisma.mentorshipRequest.findFirst({
+    where: {
+      projectGroupId: projectGroupId,
+      status: { in: ["pending", "mentor_invited", "accepted"] },
+    },
+  });
+});
+
+const getMentorProfile = cache(async (mentorId: string) => {
+  return prisma.profile.findUnique({
+    where: {
+      userId: mentorId,
+      type: "mentor",
+      availableForMentorship: true,
+    },
+  });
+});
+
+// Main Functions
+export async function createMentorshipRequest(input: {
+  mentorId: string;
+  projectGroupId: number;
+  message?: string;
+}) {
+  const user = await getAuthenticatedUser();
+
   try {
     const decodedMentorId = decodeURIComponent(input.mentorId);
 
-    // 1. Check if project already has a mentor
-    const existingMentor = await checkProjectMentor(input.projectGroupId);
+    // Parallel queries for faster execution
+    const [existingMentor, isOwner, existingRequest, mentorProfile] =
+      await Promise.all([
+        getProjectWithMentor(input.projectGroupId),
+        checkProjectOwnership(user.sub, input.projectGroupId),
+        getPendingMentorshipRequest(input.projectGroupId),
+        getMentorProfile(decodedMentorId),
+      ]);
+
+    // Validation checks
     if (existingMentor?.mentorId) {
       throw new Error(
         `This project already has a mentor (${existingMentor.mentor.name})`
       );
     }
 
-    // 2. Verify if the user is the project owner
-    const isOwner = await isProjectOwner(user.sub, input.projectGroupId);
     if (!isOwner) {
       throw new Error("Only project owners can send mentorship requests");
     }
 
-    // 3. Check if project already has a pending mentor request
-    const existingRequest = await checkExistingMentorshipRequest(
-      input.projectGroupId
-    );
     if (existingRequest) {
       throw new Error("This project already has a pending mentorship request");
     }
-
-    // 4. Verify mentor profile exists and is available
-    const mentorProfile = await prisma.profile.findUnique({
-      where: {
-        userId: decodedMentorId,
-        type: "mentor",
-        availableForMentorship: true,
-      },
-    });
 
     if (!mentorProfile) {
       throw new Error(
@@ -104,7 +166,7 @@ export async function createMentorshipRequest(input: {
       },
     });
 
-    // Send email notification to mentor
+    // Send email notification to mentor if email exists
     if (mentorshipRequest.mentor.email) {
       await EmailService.sendMentorRequest(
         mentorshipRequest,
@@ -113,7 +175,7 @@ export async function createMentorshipRequest(input: {
       );
     }
 
-    // Revalidate relevant paths
+    // Batch revalidations
     revalidatePath(`/profile/${decodedMentorId}`);
     revalidatePath("/dashboard/mentorship-requests");
 
@@ -125,34 +187,28 @@ export async function createMentorshipRequest(input: {
 }
 
 export async function canRequestMentorship(projectGroupId: number) {
-  const session = await getSession();
-  const user = session?.user;
-
-  if (!user?.sub) {
-    throw new Error("Unauthorized");
-  }
+  const user = await getAuthenticatedUser();
 
   try {
-    // Check if project has a mentor
-    const existingMentor = await checkProjectMentor(projectGroupId);
+    // Parallel queries for performance improvement
+    const [existingMentor, isOwner, existingRequest] = await Promise.all([
+      getProjectWithMentor(projectGroupId),
+      checkProjectOwnership(user.sub, projectGroupId),
+      getPendingMentorshipRequest(projectGroupId),
+    ]);
+
+    // If project has a mentor
     if (existingMentor?.mentorId) {
       return {
         canRequest: false,
         message: `This project already has a mentor (${existingMentor.mentor.name})`,
-        existingMentor: existingMentor,
+        existingMentor,
+        existingRequest: null,
       };
     }
 
-    // Check if user is project owner
-    const isOwner = await isProjectOwner(user.sub, projectGroupId);
-
-    // Check for existing requests
-    const existingRequest = await checkExistingMentorshipRequest(
-      projectGroupId
-    );
-
     return {
-      canRequest: isOwner && !existingRequest && !existingMentor,
+      canRequest: !!isOwner && !existingRequest && !existingMentor,
       message: !isOwner
         ? "Only project owners can request mentorship"
         : existingRequest
@@ -169,33 +225,10 @@ export async function canRequestMentorship(projectGroupId: number) {
   }
 }
 
-async function checkProjectMentor(projectGroupId: number) {
-  const project = await prisma.projectGroup.findUnique({
-    where: {
-      id: projectGroupId,
-    },
-    select: {
-      mentorId: true,
-      mentor: {
-        select: {
-          name: true,
-        },
-      },
-    },
-  });
-
-  return project?.mentorId ? project : null;
-}
-
 export async function getMyProjectGroups() {
-  const session = await getSession();
-  const user = session?.user;
+  const user = await getAuthenticatedUser();
 
-  if (!user?.sub) {
-    throw new Error("Unauthorized");
-  }
-
-  return await prisma.projectGroup.findMany({
+  return prisma.projectGroup.findMany({
     where: {
       members: {
         some: {
@@ -218,20 +251,13 @@ export async function getMyProjectGroups() {
 }
 
 export async function getMentorshipRequests() {
-  const session = await getSession();
-  const user = session?.user;
+  const user = await getAuthenticatedUser();
 
-  if (!user?.sub) {
-    throw new Error("Unauthorized");
-  }
-
-  return await prisma.mentorshipRequest.findMany({
+  return prisma.mentorshipRequest.findMany({
     where: {
       AND: [
         { mentorId: user.sub },
-        {
-          OR: [{ status: "mentor_invited" }, { status: "pending" }],
-        },
+        { OR: [{ status: "mentor_invited" }, { status: "pending" }] },
       ],
     },
     include: {
@@ -265,52 +291,19 @@ export async function getMentorshipRequests() {
   });
 }
 
-async function checkExistingMentorshipRequest(projectGroupId: number) {
-  const existingRequest = await prisma.mentorshipRequest.findFirst({
-    where: {
-      projectGroupId: projectGroupId,
-      status: {
-        in: ["pending", "mentor_invited", "accepted"],
-      },
-    },
-  });
-  return existingRequest;
-}
-
-async function isProjectOwner(userId: string, projectGroupId: number) {
-  const projectGroup = await prisma.projectGroup.findFirst({
-    where: {
-      id: projectGroupId,
-      members: {
-        some: {
-          userId: userId,
-          role: "owner",
-          status: "accepted",
-        },
-      },
-    },
-  });
-  return !!projectGroup;
-}
-
 export async function updateMentorshipRequestStatus(
   requestId: number,
   status: "accepted" | "rejected" | "mentor_invited"
 ) {
-  const session = await getSession();
-  const user = session?.user;
+  const user = await getAuthenticatedUser();
 
-  if (!user?.sub) {
-    throw new Error("Unauthorized");
-  }
-
-  // Fetch the request with its related project group and profiles
+  // Fetch the request with related data in a single query
   const request = await prisma.mentorshipRequest.findUnique({
     where: { id: requestId },
     include: {
       projectGroup: true,
-      requester: true,
-      mentor: true,
+      requester: { select: { name: true, email: true } },
+      mentor: { select: { name: true, email: true } },
     },
   });
 
@@ -319,26 +312,26 @@ export async function updateMentorshipRequestStatus(
   }
 
   if (status === "accepted" && request.status === "mentor_invited") {
-    const updatedRequest = await prisma.$transaction(async (prisma) => {
-      // Update the project group to set the mentor
-      await prisma.projectGroup.update({
-        where: { id: request.projectGroupId },
-        data: {
-          mentorId: user.sub,
-        },
-      });
+    // Use transaction to ensure data consistency
+    const updatedRequest = await prisma.$transaction(async (tx) => {
+      // Update project group and add mentor as member in parallel
+      await Promise.all([
+        tx.projectGroup.update({
+          where: { id: request.projectGroupId },
+          data: { mentorId: user.sub },
+        }),
+        tx.groupMember.create({
+          data: {
+            groupId: request.projectGroupId,
+            userId: user.sub,
+            role: "mentor",
+            status: "accepted",
+          },
+        }),
+      ]);
 
-      // Add mentor as a group member
-      await prisma.groupMember.create({
-        data: {
-          groupId: request.projectGroupId,
-          userId: user.sub,
-          role: "mentor",
-          status: "accepted",
-        },
-      });
-
-      const result = await prisma.mentorshipRequest.update({
+      // Update request status
+      const result = await tx.mentorshipRequest.update({
         where: { id: requestId },
         data: {
           status: "accepted",
@@ -351,19 +344,19 @@ export async function updateMentorshipRequestStatus(
         },
       });
 
-      // Send email notification to requester about acceptance
-      if (request.requester.email) {
-        await EmailService.sendProjectUpdate(
-          request.requester,
-          request.projectGroup,
-          `Your mentorship request has been accepted by ${request.mentor.name}!`
-        );
-      }
-
       return result;
     });
 
-    // Revalidate paths
+    // Send email notification outside of transaction
+    if (request.requester.email) {
+      await EmailService.sendProjectUpdate(
+        request.requester,
+        request.projectGroup,
+        `Your mentorship request has been accepted by ${request.mentor.name}!`
+      );
+    }
+
+    // Batch revalidations
     revalidatePath("/dashboard/mentorship-requests");
     revalidatePath(`/profile/${user.sub}`);
 
@@ -377,7 +370,6 @@ export async function updateMentorshipRequestStatus(
       },
     });
 
-    // Send email notification to requester about rejection
     if (request.requester.email) {
       await EmailService.sendProjectUpdate(
         request.requester,
@@ -386,32 +378,16 @@ export async function updateMentorshipRequestStatus(
       );
     }
 
-    // Revalidate paths
     revalidatePath("/dashboard/mentorship-requests");
-
     return updatedRequest;
   }
 
   throw new Error("Invalid mentorship request status update");
 }
 
-const MentorRatingSchema = z.object({
-  mentorId: z.string(),
-  rating: z.number().min(1).max(5),
-});
-
 export async function rateMentor(input: { mentorId: string; rating: number }) {
-  const session = await getSession();
-  const user = session?.user;
-
-  if (!user?.sub) {
-    throw new Error("Unauthorized");
-  }
-
+  const user = await getAuthenticatedUser();
   const decodedMentorId = decodeURIComponent(input.mentorId);
-
-  console.log("Current User ID (from session):", user.sub);
-  console.log("Mentor ID (decoded):", decodedMentorId);
 
   if (user.sub === decodedMentorId) {
     throw new Error("You cannot rate yourself");
@@ -423,16 +399,19 @@ export async function rateMentor(input: { mentorId: string; rating: number }) {
       mentorId: decodedMentorId,
     });
 
-    const mentorProfile = await prisma.profile.findUnique({
-      where: {
-        userId: decodedMentorId,
-      },
-      select: {
-        userId: true,
-        name: true,
-        email: true,
-      },
-    });
+    // Get mentor profile and existing rating in parallel
+    const [mentorProfile, existingRating] = await Promise.all([
+      prisma.profile.findUnique({
+        where: { userId: decodedMentorId },
+        select: { userId: true, name: true, email: true },
+      }),
+      prisma.mentorRating.findFirst({
+        where: {
+          mentorId: validatedInput.mentorId,
+          raterId: user.sub,
+        },
+      }),
+    ]);
 
     if (!mentorProfile) {
       throw new Error(
@@ -440,22 +419,12 @@ export async function rateMentor(input: { mentorId: string; rating: number }) {
       );
     }
 
-    // Check if user has already rated this mentor
-    const existingRating = await prisma.mentorRating.findFirst({
-      where: {
-        mentorId: validatedInput.mentorId,
-        raterId: user.sub,
-      },
-    });
-
+    // Update or create rating
     let updatedMentorRating;
-
     if (existingRating) {
       updatedMentorRating = await prisma.mentorRating.update({
         where: { id: existingRating.id },
-        data: {
-          rating: validatedInput.rating,
-        },
+        data: { rating: validatedInput.rating },
       });
     } else {
       updatedMentorRating = await prisma.mentorRating.create({
@@ -467,36 +436,32 @@ export async function rateMentor(input: { mentorId: string; rating: number }) {
       });
     }
 
-    // Recalculate mentor's average rating
+    // Get all mentor ratings
     const mentorRatings = await prisma.mentorRating.findMany({
       where: { mentorId: validatedInput.mentorId },
+      select: { rating: true },
     });
 
+    // Calculate average rating
     const averageRating =
       mentorRatings.length > 0
         ? mentorRatings.reduce((sum, r) => sum + r.rating, 0) /
           mentorRatings.length
         : 0;
 
-    // Update mentor's profile with new average rating
+    // Update mentor profile with new average rating
     await prisma.profile.update({
       where: { userId: validatedInput.mentorId },
-      data: {
-        mentorRating: averageRating,
-      },
+      data: { mentorRating: averageRating },
     });
 
-    // Fetch rater's profile for the notification
+    // Get rater's name for notification
     const raterProfile = await prisma.profile.findUnique({
-      where: {
-        userId: user.sub,
-      },
-      select: {
-        name: true,
-      },
+      where: { userId: user.sub },
+      select: { name: true },
     });
 
-    // Send email notification to mentor about new rating
+    // Send email notification
     if (mentorProfile.email) {
       await EmailService.sendProjectUpdate(
         mentorProfile,
@@ -507,7 +472,6 @@ export async function rateMentor(input: { mentorId: string; rating: number }) {
       );
     }
 
-    // Revalidate the mentor's profile path
     revalidatePath(`/profile/${validatedInput.mentorId}`);
 
     return {
@@ -521,12 +485,7 @@ export async function rateMentor(input: { mentorId: string; rating: number }) {
 }
 
 export async function checkIfUserHasRatedMentor(mentorId: string) {
-  const session = await getSession();
-  const user = session?.user;
-
-  if (!user?.sub) {
-    throw new Error("Unauthorized");
-  }
+  const user = await getAuthenticatedUser();
 
   // Prevent rating yourself
   if (user.sub === mentorId) {
@@ -538,6 +497,7 @@ export async function checkIfUserHasRatedMentor(mentorId: string) {
       mentorId: mentorId,
       raterId: user.sub,
     },
+    select: { rating: true },
   });
 
   return {

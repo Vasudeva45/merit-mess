@@ -11,7 +11,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ImSpinner2 } from "react-icons/im";
-import { BsFileEarmarkPlus, BsRobot } from "react-icons/bs";
+import { BsFileEarmarkPlus } from "react-icons/bs";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -37,6 +37,7 @@ import { CheckIcon, Wand2 } from "lucide-react";
 import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
 import { CreateForm } from "@/actions/form";
 
+// Study domains and specializations moved outside component to prevent redefinition on renders
 const STUDY_DOMAINS = [
   "Computer Science (CSE)",
   "Electronics (ECE)",
@@ -100,6 +101,7 @@ const SPECIALIZATIONS = {
 const CreateFormBtn = () => {
   const router = useRouter();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const form = useForm({
     defaultValues: {
@@ -123,7 +125,7 @@ const CreateFormBtn = () => {
 
     setIsGenerating(true);
     try {
-      // Here you would typically make an API call to your backend that interfaces with Google's Generative AI
+      // API call for AI-generated description
       const response = await fetch("/api/generate-description", {
         method: "POST",
         headers: {
@@ -153,7 +155,12 @@ const CreateFormBtn = () => {
     }
   };
 
-  const onSubmit = async (values: { name: string; description: string; domain: string; specialization: string }) => {
+  const onSubmit = async (values: {
+    name: string;
+    description: string;
+    domain: string;
+    specialization: string;
+  }) => {
     try {
       const formId = await CreateForm(values);
       toast.success("Form Created Successfully", {
@@ -170,17 +177,20 @@ const CreateFormBtn = () => {
   };
 
   return (
-    <Dialog>
+    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          className="group border border-primary/20 h-[190px] items-center justify-center flex flex-col hover:border-primary hover:cursor-pointer border-dashed gap-4"
-        >
-          <BsFileEarmarkPlus className="h-8 w-8 text-muted-foreground group-hover:text-primary" />
-          <p className="font-bold text-xl text-muted-foreground group-hover:text-primary">
-            Create new form
-          </p>
-        </Button>
+        {/* This div ensures the button is the same size as form cards */}
+        <div className="h-full">
+          <Button
+            variant="outline"
+            className="w-full h-full min-h-[240px] border border-primary/20 items-center justify-center flex flex-col hover:border-primary hover:cursor-pointer border-dashed gap-4"
+          >
+            <BsFileEarmarkPlus className="h-8 w-8 text-muted-foreground group-hover:text-primary" />
+            <p className="font-bold text-xl text-muted-foreground group-hover:text-primary">
+              Create new form
+            </p>
+          </Button>
+        </div>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

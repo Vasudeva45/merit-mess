@@ -1,4 +1,3 @@
-import React, { Suspense } from "react";
 import { GetFormById, GetFormWithSubmissions } from "@/actions/form";
 import {
   getFormSubmissionsWithProfiles,
@@ -10,8 +9,13 @@ import {
   FormElementInstance,
 } from "@/components/FormRelated/FormElements";
 import FormLinkShare from "@/components/FormRelated/FormLinkShare";
+import { StatusButton } from "@/components/FormRelated/StatusButton";
 import VisitBtn from "@/components/FormRelated/VisitBtn";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import SubmissionGroupManager from "@/components/groupRelated/SubmissionGroupManager";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -20,17 +24,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format, formatDistance } from "date-fns";
-import { ReactNode } from "react";
-import { Zap, Users as UserIcon } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import SubmissionGroupManager from "@/components/groupRelated/SubmissionGroupManager";
-import { StatusButton } from "@/components/FormRelated/StatusButton";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ReactNode, Suspense } from "react";
 // Separate client-side component for description
 import DescriptionExpander from "@/components/FormRelated/DescriptionExpander";
+import {
+  ArrowUpRight,
+  BarChart,
+  FileCheck,
+  Users as UserIcon,
+  Zap,
+} from "lucide-react";
 
 // Loading component
 function BuilderPageLoading() {
@@ -135,12 +140,11 @@ async function BuilderPage({
       </div>
 
       <div className="container max-w-7xl mx-auto px-4 py-8">
-        {/* Stats cards section */}
         <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
           <StatsCard
             title="Total visits"
             icon={<Zap className="w-6 h-6" />}
-            iconBg="bg-primary"
+            iconBg="bg-green-500"
             helperText="All time form visits"
             value={visits.toLocaleString() ?? "0"}
             loading={false}
@@ -148,8 +152,8 @@ async function BuilderPage({
           />
           <StatsCard
             title="Total submissions"
-            icon={<Zap className="w-6 h-6" />}
-            iconBg="bg-primary"
+            icon={<FileCheck className="w-6 h-6" />}
+            iconBg="bg-green-500"
             helperText="All time form submissions"
             value={submissions.toLocaleString() ?? "0"}
             loading={false}
@@ -157,8 +161,8 @@ async function BuilderPage({
           />
           <StatsCard
             title="Submission rate"
-            icon={<Zap className="w-6 h-6" />}
-            iconBg="bg-primary"
+            icon={<BarChart className="w-6 h-6" />}
+            iconBg="bg-blue-500"
             helperText="Visits that result in form submission"
             value={submissionRate.toLocaleString() + "%" || "0"}
             loading={false}
@@ -166,8 +170,8 @@ async function BuilderPage({
           />
           <StatsCard
             title="Bounce rate"
-            icon={<Zap className="w-6 h-6" />}
-            iconBg="bg-primary"
+            icon={<ArrowUpRight className="w-6 h-6" />}
+            iconBg="bg-amber-500"
             helperText="Visits that leave without interacting"
             value={bouncedRate.toLocaleString() + "%" || "0"}
             loading={false}

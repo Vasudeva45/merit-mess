@@ -1,31 +1,25 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
-import {
-  getMyProjectGroups,
-  getProjectInvites,
-  updateMemberStatus,
-} from "@/actions/group";
+import { getMyProjectGroups, getProjectInvites } from "@/actions/group";
 import {
   getMentorshipRequests,
   updateMentorshipRequestStatus,
 } from "@/actions/mentorship";
 import { getCurrentUserProfile } from "@/actions/profile";
+import CustomToast from "@/components/Toast/custom-toast";
 import {
-  FileText,
-  Users,
-  Coffee,
-  ClipboardList,
   Check,
+  ClipboardList,
+  Clock,
+  Coffee,
+  FileText,
+  Loader2,
+  Star,
+  Users,
   X,
   Zap,
-  ArrowRight,
-  Star,
-  Clock,
-  Loader2,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import CustomToast from "@/components/Toast/custom-toast";
+import { useEffect, useMemo, useState } from "react";
 
 const ProjectDashboard = () => {
   const [userData, setUserData] = useState({
@@ -39,7 +33,7 @@ const ProjectDashboard = () => {
   const [processingItems, setProcessingItems] = useState({});
   const [navigatingProject, setNavigatingProject] = useState(null);
   const [toast, setToast] = useState(null);
-  const router = useRouter();
+  // const router = useRouter();
 
   const ActionButton = ({ onClick, type, itemId, icon: Icon }) => {
     const isProcessing = processingItems[itemId];
@@ -219,7 +213,10 @@ const ProjectDashboard = () => {
   // Project card renderer
   const renderProjectCard = (project) => {
     const handleProjectNavigation = () => {
+      setNavigatingProject(project.id);
       window.open(`/projects/${project.id}`, "_blank");
+      // Reset the navigating state after a short delay
+      setTimeout(() => setNavigatingProject(null), 1500);
     };
 
     const isNavigating = navigatingProject === project.id;

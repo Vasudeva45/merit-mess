@@ -38,6 +38,36 @@ import {
 } from "@/actions/mentorship";
 import CustomToast, { ToastMessage } from "@/components/Toast/custom-toast";
 
+// Define types for the mentor object
+interface Mentor {
+  imageUrl?: string;
+  name: string;
+  title: string;
+  organization?: string;
+  mentorRating?: number;
+  yearsOfExperience?: number;
+  email?: string;
+  linkedin?: string;
+  github?: string;
+  mentorExpertise?: string[];
+  bio?: string;
+  certifications?: string[];
+  mentoredProjects?: {
+    name: string;
+    description?: string;
+  }[];
+}
+
+// Define project group type
+interface ProjectGroup {
+  id: number;
+  name: string;
+  form: {
+    name: string;
+    description: string;
+  };
+}
+
 export default function MentorProfilePage({
   params,
 }: {
@@ -46,11 +76,13 @@ export default function MentorProfilePage({
   const searchParams = useSearchParams();
   const isAlreadyMentor = searchParams.get("isProjectMentor") === "true";
 
-  const [mentor, setMentor] = useState<any | null>(null);
+  const [mentor, setMentor] = useState<Mentor | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [projectGroups, setProjectGroups] = useState<{ id: number; name: string; form: { name: string; description: string; } }[]>([]);
-  const [selectedProjectGroup, setSelectedProjectGroup] = useState<number | null>(null);
+  const [projectGroups, setProjectGroups] = useState<ProjectGroup[]>([]);
+  const [selectedProjectGroup, setSelectedProjectGroup] = useState<
+    number | null
+  >(null);
   const [mentorshipMessage, setMentorshipMessage] = useState("");
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
 
@@ -147,10 +179,13 @@ export default function MentorProfilePage({
         rating: userRating,
       });
 
-      setMentor((prev: any) => ({
-        ...prev,
-        mentorRating: result.averageRating,
-      }));
+      setMentor((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          mentorRating: result.averageRating,
+        };
+      });
 
       setIsRatingDialogOpen(false);
       setHasRated(true);
@@ -160,7 +195,10 @@ export default function MentorProfilePage({
         "success"
       );
     } catch (err) {
-      if (err instanceof Error && err.message.includes("You cannot rate yourself")) {
+      if (
+        err instanceof Error &&
+        err.message.includes("You cannot rate yourself")
+      ) {
         setRatingError("You cannot rate your own profile");
       } else {
         if (err instanceof Error) {
@@ -219,7 +257,8 @@ export default function MentorProfilePage({
     try {
       const groups = await getMyProjectGroups();
       setProjectGroups(groups);
-    } catch (err) {
+    } catch (error) {
+      console.error("Failed to fetch project groups:", error);
       showCustomToast(
         "Project Groups Error",
         "Failed to fetch project groups",
@@ -263,7 +302,8 @@ export default function MentorProfilePage({
       );
     } catch (err) {
       if (
-        (err instanceof Error && err.message === "A mentorship request for this project already exists")
+        err instanceof Error &&
+        err.message === "A mentorship request for this project already exists"
       ) {
         setIsRequestDialogOpen(false);
         setIsExistingRequestModalOpen(true);
@@ -272,7 +312,11 @@ export default function MentorProfilePage({
         if (err instanceof Error) {
           showCustomToast("Request Error", err.message, "error");
         } else {
-          showCustomToast("Request Error", "An unknown error occurred", "error");
+          showCustomToast(
+            "Request Error",
+            "An unknown error occurred",
+            "error"
+          );
         }
       }
     } finally {
@@ -329,10 +373,11 @@ export default function MentorProfilePage({
           <div className="flex items-start gap-6">
             <div className="flex-shrink-0">
               {mentor.imageUrl ? (
-                <img
-                  src={mentor.imageUrl}
-                  alt={mentor.name}
-                  className="h-32 w-32 rounded-full object-cover"
+                // Using a div with background image instead of Image component to avoid domain issues
+                <div
+                  className="h-32 w-32 rounded-full bg-center bg-cover"
+                  style={{ backgroundImage: `url('${mentor.imageUrl}')` }}
+                  aria-label={`Profile picture of ${mentor.name}`}
                 />
               ) : (
                 <div className="h-32 w-32 rounded-full bg-muted flex items-center justify-center">
@@ -444,16 +489,24 @@ export default function MentorProfilePage({
           </CardHeader>
           <CardContent>
             <div className="grid gap-4">
-              {mentor.mentoredProjects.map((project: { name: string; description?: string }, index: number) => (
-                <div key={index} className="p-4 bg-muted rounded-lg">
-                  <h3 className="font-medium mb-2">{project.name}</h3>
-                  {project.description && (
-                    <p className="text-sm text-muted-foreground">
-                      {project.description}
-                    </p>
-                  )}
-                </div>
-              ))}
+              {mentor.mentoredProjects.map(
+                (
+                  project: {
+                    name: string;
+                    description?: string;
+                  },
+                  index: number
+                ) => (
+                  <div key={index} className="p-4 bg-muted rounded-lg">
+                    <h3 className="font-medium mb-2">{project.name}</h3>
+                    {project.description && (
+                      <p className="text-sm text-muted-foreground">
+                        {project.description}
+                      </p>
+                    )}
+                  </div>
+                )
+              )}
             </div>
           </CardContent>
         </Card>

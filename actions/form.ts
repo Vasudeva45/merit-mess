@@ -5,9 +5,7 @@ import { formschema, formschemaType } from "@/schemas/form";
 import { getSession } from "@auth0/nextjs-auth0";
 import { v4 as uuidv4 } from "uuid";
 import { EmailService } from "./emailService";
-import { cache } from "react";
 
-// Type definitions
 type FormWithOwner = {
   id: number;
   name: string;
@@ -24,40 +22,15 @@ type FormWithOwner = {
   } | null;
 };
 
-class UserNotFoundErr extends Error {
-  constructor() {
-    super("User not found");
-    this.name = "UserNotFoundErr";
-  }
-}
-
-// Utility functions
-const getUserFromSession = async () => {
-  const session = await getSession();
-  const user = session?.user;
-
-  if (!user || !user.sub) {
-    throw new UserNotFoundErr();
-  }
-
-  return user;
-};
-
-// Cached user profile fetching
-const getUserProfile = cache(async (userId: string) => {
-  return await prisma.profile.findUnique({
-    where: { userId },
-    select: {
-      userId: true,
-      name: true,
-      email: true,
-      imageUrl: true,
-    },
-  });
-});
+class UserNotFoundErr extends Error {}
 
 export async function GetFormStats() {
-  const user = await getUserFromSession();
+  const session = await getSession();
+  const user = await session?.user;
+
+  if (!user) {
+    throw new UserNotFoundErr();
+  }
 
   const stats = await prisma.form.aggregate({
     where: {
@@ -72,7 +45,12 @@ export async function GetFormStats() {
   const visits = stats._sum.visits ?? 0;
   const submissions = stats._sum.submissions ?? 0;
 
-  const submissionRate = visits > 0 ? (submissions / visits) * 100 : 0;
+  let submissionRate = 0;
+
+  if (visits > 0) {
+    submissionRate = (submissions / visits) * 100;
+  }
+
   const bouncedRate = 100 - submissionRate;
 
   return {
@@ -86,11 +64,18 @@ export async function GetFormStats() {
 export async function CreateForm(data: formschemaType) {
   const validation = formschema.safeParse(data);
   if (!validation.success) {
-    throw new Error("Form not valid");
+    throw new Error("form not valid");
   }
 
   try {
-    const user = await getUserFromSession();
+    const session = await getSession();
+    const user = session?.user;
+
+    if (!user || !user.sub) {
+      console.error("User not found");
+      throw new UserNotFoundErr();
+    }
+
     const { name, description, domain, specialization } = data;
     const formUid = uuidv4();
 
@@ -106,17 +91,20 @@ export async function CreateForm(data: formschemaType) {
     });
 
     if (!form) {
-      throw new Error("Form creation failed");
+      throw new Error("Something went wrong");
     }
 
-    // Send email notification in the background
-    const userProfile = await getUserProfile(user.sub);
-    if (userProfile?.email) {
-      EmailService.sendFormCreationNotification(
+    // Send email notification
+    const userProfile = await prisma.profile.findUnique({
+      where: { userId: user.sub },
+    });
+
+    if (userProfile) {
+      await EmailService.sendFormCreationNotification(
         userProfile,
         form.name,
         form.id
-      ).catch((err) => console.error("Email notification failed:", err));
+      );
     }
 
     return form.id;
@@ -127,7 +115,13 @@ export async function CreateForm(data: formschemaType) {
 }
 
 export async function GetForms() {
-  const user = await getUserFromSession();
+  const session = await getSession();
+  const user = session?.user;
+
+  if (!user || !user.sub) {
+    console.error("User not found");
+    throw new UserNotFoundErr();
+  }
 
   return await prisma.form.findMany({
     where: {
@@ -143,18 +137,29 @@ export async function GetForms() {
 }
 
 export async function GetFormById(id: number) {
-  const user = await getUserFromSession();
+  const session = await getSession();
+  const user = session?.user;
+
+  if (!user || !user.sub) {
+    console.error("User not found");
+    throw new UserNotFoundErr();
+  }
 
   return await prisma.form.findUnique({
     where: {
       id,
-      userId: user.sub, // Security check: ensure form belongs to user
     },
   });
 }
 
 export async function UpdateFormContent(id: number, jsonContent: string) {
-  const user = await getUserFromSession();
+  const session = await getSession();
+  const user = session?.user;
+
+  if (!user || !user.sub) {
+    console.error("User not found");
+    throw new UserNotFoundErr();
+  }
 
   const form = await prisma.form.update({
     where: {
@@ -164,27 +169,32 @@ export async function UpdateFormContent(id: number, jsonContent: string) {
     data: {
       content: jsonContent,
     },
-    select: {
-      name: true,
-      id: true,
-    },
   });
 
-  // Send email notification in background
-  const userProfile = await getUserProfile(user.sub);
-  if (userProfile?.email) {
-    EmailService.sendFormContentUpdateNotification(
+  // Send email notification
+  const userProfile = await prisma.profile.findUnique({
+    where: { userId: user.sub },
+  });
+
+  if (userProfile) {
+    await EmailService.sendFormContentUpdateNotification(
       userProfile,
       form.name,
       form.id
-    ).catch((err) => console.error("Email notification failed:", err));
+    );
   }
 
   return form;
 }
 
 export async function PublishForm(id: number) {
-  const user = await getUserFromSession();
+  const session = await getSession();
+  const user = session?.user;
+
+  if (!user || !user.sub) {
+    console.error("User not found");
+    throw new UserNotFoundErr();
+  }
 
   const form = await prisma.form.update({
     where: {
@@ -194,20 +204,19 @@ export async function PublishForm(id: number) {
     data: {
       published: true,
     },
-    select: {
-      name: true,
-      shareURL: true,
-    },
   });
 
-  // Send email notification in background
-  const userProfile = await getUserProfile(user.sub);
-  if (userProfile?.email) {
-    EmailService.sendFormPublishedNotification(
+  // Send email notification
+  const userProfile = await prisma.profile.findUnique({
+    where: { userId: user.sub },
+  });
+
+  if (userProfile) {
+    await EmailService.sendFormPublishedNotification(
       userProfile,
       form.name,
       form.shareURL
-    ).catch((err) => console.error("Email notification failed:", err));
+    );
   }
 
   return form;
@@ -231,11 +240,19 @@ export async function GetFormContentByUrl(formUrl: string) {
 }
 
 export async function SubmitForm(formUrl: string, content: string) {
-  const user = await getUserFromSession();
-  const userId = user.sub;
+  console.log("Starting form submission process for URL:", formUrl);
+  const session = await getSession();
+  const user = session?.user;
 
-  // Efficient combined query to check form status and duplicates
-  const formCheck = await prisma.form.findUnique({
+  if (!user || !user.sub) {
+    console.error("No user found in session");
+    throw new Error("UNAUTHORIZED");
+  }
+
+  console.log("User authenticated:", user.sub);
+
+  // First, get the form details before submission
+  const existingForm = await prisma.form.findUnique({
     where: {
       shareURL: formUrl,
     },
@@ -247,138 +264,224 @@ export async function SubmitForm(formUrl: string, content: string) {
       published: true,
       FormSubmissions: {
         where: {
-          userId,
-        },
-        select: {
-          id: true,
+          userId: user.sub,
         },
       },
     },
   });
 
-  // Form validation checks
-  if (!formCheck || !formCheck.published) {
+  console.log("Existing form details:", {
+    formFound: !!existingForm,
+    formStatus: existingForm?.status,
+    isPublished: existingForm?.published,
+  });
+
+  // Check if form exists and is published
+  if (!existingForm || !existingForm.published) {
+    console.error("Form not found or not published");
     throw new Error("FORM_NOT_FOUND");
   }
 
-  if (formCheck.status === "closed") {
+  // Check if form is accepting submissions
+  if (existingForm.status === "closed") {
+    console.error("Form is closed for submissions");
     throw new Error("FORM_CLOSED");
   }
 
-  if (formCheck.FormSubmissions.length > 0) {
+  // Check for duplicate submissions
+  if (existingForm.FormSubmissions.length > 0) {
+    console.error("Duplicate submission detected");
     throw new Error("DUPLICATE_SUBMISSION");
   }
 
-  // Create submission and increment counter in a single transaction
-  const submission = await prisma.$transaction(async (tx) => {
-    // Create the submission
-    const result = await tx.formSubmission.create({
-      data: {
-        content,
-        userId,
-        formId: formCheck.id,
-      },
-    });
+  try {
+    console.log("Creating form submission in database...");
 
-    // Update form submission count
-    await tx.form.update({
+    // Submit the form
+    const submission = await prisma.form.update({
       where: {
-        id: formCheck.id,
+        shareURL: formUrl,
       },
       data: {
         submissions: {
           increment: 1,
         },
+        FormSubmissions: {
+          create: {
+            content,
+            userId: user.sub,
+          },
+        },
       },
     });
 
-    return result;
-  });
+    console.log("Form submission created successfully");
 
-  // Send emails in the background after transaction completes
-  Promise.all([
-    // Get profiles for emails
-    getUserProfile(userId),
-    getUserProfile(formCheck.userId),
-  ])
-    .then(([submitterProfile, formOwnerProfile]) => {
-      // Send confirmation to submitter
-      if (submitterProfile?.email) {
-        const submitterTemplate = {
-          subject: `Submission Confirmed: ${formCheck.name}`,
-          html: `
+    // Get submitter's profile for email notification
+    console.log("Fetching submitter's profile...");
+    const submitterProfile = await prisma.profile.findUnique({
+      where: { userId: user.sub },
+      select: {
+        name: true,
+        email: true,
+      },
+    });
+
+    console.log("Submitter profile found:", {
+      name: submitterProfile?.name,
+      hasEmail: !!submitterProfile?.email,
+    });
+
+    // Get form owner's profile for email notification
+    console.log("Fetching form owner's profile...");
+    const formOwnerProfile = await prisma.profile.findUnique({
+      where: { userId: existingForm.userId },
+      select: {
+        name: true,
+        email: true,
+      },
+    });
+
+    console.log("Form owner profile found:", {
+      name: formOwnerProfile?.name,
+      hasEmail: !!formOwnerProfile?.email,
+    });
+
+    // Send confirmation email to submitter
+    if (submitterProfile?.email) {
+      console.log("Preparing submitter confirmation email");
+      const submitterTemplate = {
+        subject: `Submission Confirmed: ${existingForm.name}`,
+        html: `
           <h2>Form Submission Confirmation</h2>
           <p>Hi ${submitterProfile.name},</p>
-          <p>Your submission for "${formCheck.name}" has been received successfully.</p>
+          <p>Your submission for "${existingForm.name}" has been received successfully.</p>
           <p>Thank you for your participation!</p>
           <p>If you need to reference this submission later, you can find it in your submissions history.</p>
           <br>
           <p>Best regards,</p>
           <p>The MeritMess Team</p>
         `,
-        };
+      };
 
-        EmailService.sendEmail(submitterProfile.email, submitterTemplate).catch(
-          (err) => console.error("Failed to send submitter email:", err)
-        );
+      try {
+        console.log("Sending confirmation email to submitter...");
+        await EmailService.sendEmail(submitterProfile.email, submitterTemplate);
+        console.log("Submitter confirmation email sent successfully");
+
+        // Add a small delay before sending the next email
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      } catch (emailError) {
+        console.error("Failed to send confirmation email to submitter:", {
+          error: emailError,
+          errorMessage: (emailError as Error).message,
+          errorStack: (emailError as Error).stack,
+          recipientEmail: submitterProfile.email,
+        });
       }
+    } else {
+      console.log("No email found for submitter - skipping confirmation email");
+    }
 
-      // Send notification to form owner
-      if (formOwnerProfile?.email) {
-        const ownerTemplate = {
-          subject: `New Submission: ${formCheck.name}`,
-          html: `
+    // Send notification email to form owner
+    if (formOwnerProfile?.email) {
+      console.log("Preparing form owner notification email");
+      const ownerTemplate = {
+        subject: `New Submission: ${existingForm.name}`,
+        html: `
           <h2>New Form Submission Received</h2>
           <p>Hi ${formOwnerProfile.name},</p>
-          <p>You have received a new submission for "${formCheck.name}".</p>
+          <p>You have received a new submission for "${existingForm.name}".</p>
           <p>Submission details:</p>
           <ul>
             <li>Submitted by: ${submitterProfile?.name || "Anonymous"}</li>
             <li>Date: ${new Date().toLocaleString()}</li>
           </ul>
           <a href="${process.env.NEXT_PUBLIC_APP_URL}/forms/${
-            formCheck.id
-          }/submissions">View Submission</a>
+          existingForm.id
+        }/submissions">View Submission</a>
           <br>
           <p>Best regards,</p>
           <p>The MeritMess Team</p>
         `,
-        };
+      };
 
-        EmailService.sendEmail(formOwnerProfile.email, ownerTemplate).catch(
-          (err) => console.error("Failed to send owner email:", err)
-        );
+      try {
+        console.log("Sending notification email to form owner...");
+        await EmailService.sendEmail(formOwnerProfile.email, ownerTemplate);
+        console.log("Form owner notification email sent successfully");
+      } catch (emailError) {
+        console.error("Failed to send notification email to form owner:", {
+          error: emailError,
+          errorMessage: (emailError as Error).message,
+          errorStack: (emailError as Error).stack,
+          recipientEmail: formOwnerProfile.email,
+        });
       }
-    })
-    .catch((err) => console.error("Error sending notification emails:", err));
+    } else {
+      console.log(
+        "No email found for form owner - skipping notification email"
+      );
+    }
 
-  return submission;
+    console.log("Form submission process completed successfully");
+    return submission;
+  } catch (error) {
+    console.error("Error in form submission process:", {
+      error,
+      errorMessage: (error as Error).message,
+      errorStack: (error as Error).stack,
+    });
+    throw error;
+  }
 }
 
 export async function CheckDuplicateSubmission(
   formUrl: string,
   userId: string
 ) {
-  const submission = await prisma.formSubmission.findFirst({
+  const existingSubmission = await prisma.form.findFirst({
     where: {
-      form: {
-        shareURL: formUrl,
+      shareURL: formUrl,
+      FormSubmissions: {
+        some: {
+          userId: userId,
+        },
       },
-      userId,
     },
-    select: {
-      createdAt: true,
+    include: {
+      FormSubmissions: {
+        where: {
+          userId: userId,
+        },
+        select: {
+          createdAt: true,
+        },
+      },
     },
   });
 
+  if (existingSubmission && existingSubmission.FormSubmissions.length > 0) {
+    return {
+      hasDuplicate: true,
+      submissionDate: existingSubmission.FormSubmissions[0].createdAt,
+    };
+  }
+
   return {
-    hasDuplicate: !!submission,
-    submissionDate: submission?.createdAt ?? null,
+    hasDuplicate: false,
+    submissionDate: null,
   };
 }
 
 export async function GetFormWithSubmissions(id: number) {
-  const user = await getUserFromSession();
+  const session = await getSession();
+  const user = session?.user;
+
+  if (!user || !user.sub) {
+    console.error("User not found");
+    throw new UserNotFoundErr();
+  }
 
   return await prisma.form.findUnique({
     where: {
@@ -391,9 +494,9 @@ export async function GetFormWithSubmissions(id: number) {
   });
 }
 
-// Cache public forms for 1 minute
-export const getPublicForms = cache(async () => {
-  return await prisma.form.findMany({
+export async function getPublicForms() {
+  "use server";
+  const forms = await prisma.form.findMany({
     where: {
       published: true,
       NOT: {
@@ -413,10 +516,16 @@ export const getPublicForms = cache(async () => {
       status: true,
     },
   });
-});
+  return forms;
+}
 
 export async function UpdateFormStatus(id: number, status: string) {
-  const user = await getUserFromSession();
+  const session = await getSession();
+  const user = session?.user;
+
+  if (!user || !user.sub) {
+    throw new UserNotFoundErr();
+  }
 
   const form = await prisma.form.update({
     where: {
@@ -426,82 +535,75 @@ export async function UpdateFormStatus(id: number, status: string) {
     data: {
       status,
     },
-    select: {
-      name: true,
-    },
   });
 
-  // Send email notification in background
-  const userProfile = await getUserProfile(user.sub);
-  if (userProfile?.email) {
-    EmailService.sendFormStatusUpdateNotification(
+  // Send email notification
+  const userProfile = await prisma.profile.findUnique({
+    where: { userId: user.sub },
+  });
+
+  if (userProfile) {
+    await EmailService.sendFormStatusUpdateNotification(
       userProfile,
       form.name,
       status
-    ).catch((err) => console.error("Email notification failed:", err));
+    );
   }
 
   return form;
 }
 
-// Cache this function for 30 seconds to avoid repeated database calls
-export const getPublicFormsWithOwners = cache(
-  async (): Promise<FormWithOwner[]> => {
-    // Get forms and related user IDs in a single query
-    const forms = await prisma.form.findMany({
-      where: {
-        published: true,
-        NOT: {
-          status: "closed",
-        },
+export async function getPublicFormsWithOwners(): Promise<FormWithOwner[]> {
+  const forms = await prisma.form.findMany({
+    where: {
+      published: true,
+      NOT: {
+        status: "closed",
       },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        domain: true,
-        specialization: true,
-        visits: true,
-        createdAt: true,
-        shareURL: true,
-        status: true,
-        userId: true,
+    },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      domain: true,
+      specialization: true,
+      visits: true,
+      createdAt: true,
+      shareURL: true,
+      status: true,
+      userId: true,
+    },
+  });
+
+  // Fetch all unique user IDs from the forms
+  const userIds = [...new Set(forms.map((form) => form.userId))];
+
+  // Fetch all profiles for these users in one query
+  const profiles = await prisma.profile.findMany({
+    where: {
+      userId: {
+        in: userIds,
       },
-    });
+    },
+    select: {
+      userId: true,
+      name: true,
+      imageUrl: true,
+    },
+  });
 
-    // Extract unique user IDs
-    const userIds = [...new Set(forms.map((form) => form.userId))];
+  // Create a map of userId to profile for efficient lookup
+  const profileMap = new Map(
+    profiles.map((profile) => [profile.userId, profile])
+  );
 
-    // Fetch all profiles in one batch
-    const profiles = await prisma.profile.findMany({
-      where: {
-        userId: {
-          in: userIds,
-        },
-      },
-      select: {
-        userId: true,
-        name: true,
-        imageUrl: true,
-      },
-    });
+  // Combine form data with owner information
+  const formsWithOwners = forms.map((form) => ({
+    ...form,
+    owner: profileMap.get(form.userId) || null,
+    createdAt: form.createdAt.toISOString(), // Convert Date to string for serialization
+  }));
 
-    // Create user ID to profile mapping
-    const profileMap = new Map(
-      profiles.map((profile) => [profile.userId, profile])
-    );
-
-    // Combine data and format for response
-    return forms.map((form) => ({
-      ...form,
-      owner: profileMap.get(form.userId)
-        ? {
-            name: profileMap.get(form.userId)?.name || "",
-            imageUrl: profileMap.get(form.userId)?.imageUrl,
-          }
-        : null,
-      createdAt: form.createdAt.toISOString(),
-    }));
-  }
-);
+  return formsWithOwners;
+}

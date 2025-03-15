@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ const VerificationStatus = ({ status: initialStatus, userId, onVerified }) => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const checkStatus = async () => {
+  const checkStatus = useCallback(async () => {
     try {
       setError(null);
       const response = await fetch(`/api/verification/status?userId=${userId}`);
@@ -51,13 +51,13 @@ const VerificationStatus = ({ status: initialStatus, userId, onVerified }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, onVerified]);
 
   useEffect(() => {
     checkStatus();
     const interval = setInterval(checkStatus, 30000);
     return () => clearInterval(interval);
-  }, [userId]);
+  }, [checkStatus]);
 
   const getStatusIcon = (isVerified) => {
     if (isVerified) {
@@ -103,8 +103,8 @@ const VerificationStatus = ({ status: initialStatus, userId, onVerified }) => {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Please wait while we verify your credentials</AlertTitle>
           <AlertDescription>
-            This process may take a few minutes. You'll be notified once the
-            verification is complete.
+            This process may take a few minutes. You&apos;ll be notified once
+            the verification is complete.
           </AlertDescription>
         </Alert>
 

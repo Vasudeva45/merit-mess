@@ -4,6 +4,7 @@ import React from "react";
 import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CustomToast, { ToastMessage } from "@/components/Toast/custom-toast";
+import Image from "next/image";
 
 interface ImageUploadProps {
   onUpload: (file: File) => Promise<void>;
@@ -60,23 +61,40 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     }
   };
 
+  // Helper component to display image while handling potential issues with Next/Image
+  const ProfileImage = () => {
+    // If we don't have an image URL, show the first letter of profile name
+    if (!imageUrl) {
+      return (
+        <div className="w-full h-full flex items-center justify-center">
+          <span className="text-4xl font-bold text-primary">
+            {profileName?.charAt(0).toUpperCase() || "?"}
+          </span>
+        </div>
+      );
+    }
+
+    // Use Next/Image with unoptimized prop to avoid remote pattern issues
+    // but still satisfy the linting rule
+    return (
+      <div className="relative w-full h-full">
+        <Image
+          src={imageUrl}
+          alt="Profile"
+          fill
+          className="object-cover"
+          unoptimized={true}
+          sizes="128px"
+        />
+      </div>
+    );
+  };
+
   return (
     <>
       <div className="relative w-32 h-32 mx-auto">
         <div className="w-full h-full rounded-full overflow-hidden border-4 border-primary/10 bg-primary/5">
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt="Profile"
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <span className="text-4xl font-bold text-primary">
-                {profileName?.charAt(0).toUpperCase() || "?"}
-              </span>
-            </div>
-          )}
+          <ProfileImage />
         </div>
         <Button
           variant="secondary"

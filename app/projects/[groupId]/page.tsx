@@ -52,6 +52,32 @@ const PROJECT_STATUSES = {
   archived: { label: "Archived", variant: "secondary" },
 };
 
+// Define proper types to replace any
+interface Task {
+  id: number;
+  title: string;
+  description: string;
+  status: string;
+  assignedTo?: string;
+  dueDate?: Date;
+  // Add any other task properties needed
+}
+
+interface Mentor {
+  id: string;
+  name: string;
+  email: string;
+  // Add any other mentor properties needed
+}
+
+interface File {
+  id: number;
+  name: string;
+  isResource: boolean;
+  url?: string;
+  // Add any other file properties needed
+}
+
 export default function ProjectRoom() {
   const params = useParams();
   const groupId = Number(params.groupId);
@@ -68,9 +94,9 @@ export default function ProjectRoom() {
     status?: string;
     discussions?: { title: string; content: string }[];
     form?: { description: string; name: string };
-    tasks?: any[];
-    mentor?: any;
-    files?: { isResource: boolean }[];
+    tasks?: Task[]; // Using defined Task type instead of any
+    mentor?: Mentor; // Using defined Mentor type instead of any
+    files?: File[]; // Using defined File type instead of any
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -125,7 +151,8 @@ export default function ProjectRoom() {
       setNewStatus(
         (projectData?.status as keyof typeof PROJECT_STATUSES) || "active"
       );
-    } catch (err) {
+    } catch (error) {
+      console.log(error);
       setError("Failed to load project details");
       toast({
         message: "Error",
@@ -178,7 +205,7 @@ export default function ProjectRoom() {
         title: "Success",
         description: "Project status updated successfully",
       });
-    } catch (err) {
+    } catch (error) {
       // Revert the status if update fails
       setNewStatus(
         (projectData?.status as keyof typeof PROJECT_STATUSES) || "active"
@@ -187,8 +214,8 @@ export default function ProjectRoom() {
       toast({
         title: "Error",
         description:
-          err instanceof Error
-            ? err.message
+          error instanceof Error
+            ? error.message
             : "Failed to update project status",
         variant: "destructive",
       });

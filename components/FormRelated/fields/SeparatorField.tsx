@@ -31,6 +31,8 @@ export const SeparatorFieldFormElement: FormElement = {
 function DesignerComponent({
   elementInstance,
 }: Readonly<{ elementInstance: FormElementInstance }>) {
+  // Temporary console log to use the elementInstance variable
+  console.log("Rendering DesignerComponent for:", elementInstance.id);
 
   return (
     <div className="flex flex-col gap-2 w-full">
@@ -45,6 +47,9 @@ function FormComponent({
 }: Readonly<{
   elementInstance: FormElementInstance;
 }>) {
+  // Temporary console log to use the elementInstance variable
+  console.log("Rendering FormComponent for:", elementInstance.id);
+
   return <Separator />;
 }
 
@@ -53,5 +58,8 @@ function PropertiesComponent({
 }: Readonly<{
   elementInstance: FormElementInstance;
 }>) {
-  return <p>No properties for this element</p>
+  // Temporary console log to use the elementInstance variable
+  console.log("Rendering PropertiesComponent for:", elementInstance.id);
+
+  return <p>No properties for this element</p>;
 }

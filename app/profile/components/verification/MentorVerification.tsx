@@ -1,34 +1,39 @@
-// components/verification/MentorVerification.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
-import {
-  initiateMentorVerification,
-  getVerificationStatus,
-} from "@/actions/mentorVerification";
+import { getVerificationStatus } from "@/actions/mentorVerification";
+
+interface VerificationStatus {
+  status: string;
+  overallStatus?: string;
+  githubVerified?: boolean;
+  documentsVerified?: boolean;
+  identityVerified?: boolean;
+}
 
 export const MentorVerificationForm = ({ userId }: { userId: string }) => {
   const [githubUsername, setGithubUsername] = useState("");
   const [documents, setDocuments] = useState<File[]>([]);
-  const [status, setStatus] = useState<any>(null);
+  const [status, setStatus] = useState<VerificationStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    loadVerificationStatus();
-  }, [userId]);
-
-  const loadVerificationStatus = async () => {
+  // Wrap the function in useCallback to prevent it from being recreated on each render
+  const loadVerificationStatus = useCallback(async () => {
     try {
       const status = await getVerificationStatus(userId);
       setStatus(status);
     } catch (error) {
       console.error("Error loading verification status:", error);
     }
-  };
+  }, [userId]); // Only depends on userId
+
+  useEffect(() => {
+    loadVerificationStatus();
+  }, [loadVerificationStatus]); // Now loadVerificationStatus is stable
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,23 +41,31 @@ export const MentorVerificationForm = ({ userId }: { userId: string }) => {
     setError(null);
 
     try {
+      // Using documents in the request body
+      const formData = new FormData();
+      formData.append("githubUsername", githubUsername);
+
+      // Append each document to the form data
+      documents.forEach((doc, index) => {
+        formData.append(`document-${index}`, doc);
+      });
+
       const response = await fetch("/api/verification", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          githubUsername,
-          documents: [], // Handle document upload separately
-        }),
+        body: formData, // Using FormData to handle file uploads
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message);
+        const errorData = await response.json();
+        throw new Error(errorData.message);
       }
 
       await loadVerificationStatus();
-    } catch (error) {
-      setError(error.message);
+    } catch (error: unknown) {
+      // Type guard to safely access error.message
+      const errorMessage =
+        error instanceof Error ? error.message : "An unknown error occurred";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -93,7 +106,7 @@ export const MentorVerificationForm = ({ userId }: { userId: string }) => {
               placeholder="Enter your GitHub username"
             />
             <p className="text-sm text-muted-foreground">
-              We'll verify your professional experience through GitHub
+              We&apos;ll verify your professional experience through GitHub
             </p>
           </div>
 

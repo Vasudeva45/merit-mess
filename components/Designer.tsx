@@ -1,33 +1,28 @@
 "use client";
 
-import React, { useState } from "react";
-import DesignerSidebar from "./FormRelated/DesignerSidebar";
+import { idGenerator } from "@/lib/idGenerator";
+import { cn } from "@/lib/utils";
 import {
   DragEndEvent,
   useDndMonitor,
   useDraggable,
   useDroppable,
 } from "@dnd-kit/core";
-import { cn } from "@/lib/utils";
-import useDesigner from "./FormRelated/hooks/useDesigner";
+import { Move, Sparkles, Trash2 } from "lucide-react";
+import { useState } from "react";
+import DesignerSidebar from "./FormRelated/DesignerSidebar";
 import {
   ElementsType,
   FormElementInstance,
   FormElements,
 } from "./FormRelated/FormElements";
-import { idGenerator } from "@/lib/idGenerator";
+import useDesigner from "./FormRelated/hooks/useDesigner";
 import { Button } from "./ui/button";
-import { 
-  Trash2, 
-  Move, 
-  Plus, 
-  Sparkles 
-} from "lucide-react";
-import { 
-  Tooltip, 
-  TooltipContent, 
-  TooltipProvider, 
-  TooltipTrigger 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from "./ui/tooltip";
 
 function Designer() {
@@ -146,7 +141,8 @@ function Designer() {
           className={cn(
             "bg-background max-w-[920px] h-full m-auto rounded-xl flex flex-col flex-grow items-center justify-start flex-1 overflow-y-auto",
             "border-2 border-dashed border-muted/50 transition-all duration-300",
-            droppable.isOver && "ring-4 ring-primary ring-inset border-primary/50"
+            droppable.isOver &&
+              "ring-4 ring-primary ring-inset border-primary/50"
           )}
         >
           {!droppable.isOver && elements.length === 0 && (
@@ -224,8 +220,8 @@ function DesignerElementWrapper({
       {...draggable.attributes}
       className={cn(
         "relative group flex flex-col text-foreground rounded-xl border-2 transition-all duration-300",
-        selectedElement?.id === element.id 
-          ? "border-primary ring-4 ring-primary/20" 
+        selectedElement?.id === element.id
+          ? "border-primary ring-4 ring-primary/20"
           : "border-muted hover:border-primary/50 hover:cursor-pointer"
       )}
       onMouseEnter={() => setMouseIsOver(true)}
@@ -283,9 +279,7 @@ function DesignerElementWrapper({
       <div
         className={cn(
           "flex w-full min-h-[120px] items-center rounded-xl px-4 py-2",
-          selectedElement?.id === element.id 
-            ? "bg-primary/10" 
-            : "bg-accent/40",
+          selectedElement?.id === element.id ? "bg-primary/10" : "bg-accent/40",
           mouseIsOver && "opacity-50"
         )}
       >

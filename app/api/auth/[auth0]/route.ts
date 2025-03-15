@@ -3,6 +3,7 @@ import { handleAuth, handleLogin } from "@auth0/nextjs-auth0";
 export const GET = async (req, { params }) => {
   // Ensure params is awaited
   const authParam = await params.auth0;
+  console.log(authParam);
 
   return handleAuth({
     login: handleLogin({

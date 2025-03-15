@@ -88,6 +88,7 @@ const ProfileSlider: React.FC<ProfileSliderProps> = ({ profile, onSave }) => {
       );
       setIsEditing(false);
     } catch (error) {
+      console.error("Failed to fetch:", error);
       showToast(
         "Error",
         "Failed to update profile. Please try again.",

@@ -17,7 +17,7 @@ const EmptyProfileState = ({
     <Card className="max-w-2xl mx-auto transform hover:scale-[1.01] transition-transform">
       <CardHeader className="text-center">
         <CardTitle className="text-3xl font-bold">
-          Welcome! Let's Set Up Your Profile
+          Welcome! Let&apos;s Set Up Your Profile
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">

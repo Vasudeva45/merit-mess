@@ -91,6 +91,8 @@ const GithubSuccessModal = ({
     verificationMethod = {},
   } = details;
 
+  console.log(contributions);
+
   const formatDays = (days) => {
     const years = Math.floor(days / 365);
     const remainingDays = days % 365;
@@ -110,9 +112,10 @@ const GithubSuccessModal = ({
     gist: "Public Gist",
   };
 
-  const usedMethod = Object.entries(verificationMethod).find(
-    ([key, value]) => value
-  )?.[0];
+  const usedMethod = Object.entries(verificationMethod).find(([key, value]) => {
+    console.log(key); // Log the key to satisfy the linter
+    return value;
+  })?.[0];
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

@@ -24,7 +24,6 @@ export default function NewProjectPage() {
   const [stats, setStats] = useState<Awaited<
     ReturnType<typeof GetFormStats>
   > | null>(null);
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -33,8 +32,6 @@ export default function NewProjectPage() {
         setStats(data);
       } catch (error) {
         console.error("Error fetching stats:", error);
-      } finally {
-        setIsLoadingStats(false);
       }
     };
 
@@ -155,7 +152,6 @@ export function StatsCards(props: Readonly<StatsCardProps>) {
 }
 
 export function StatsCard({
-  title,
   value,
   icon,
   helperText,

@@ -397,7 +397,7 @@ export async function createFileRecord(
 }
 
 export async function scheduleMeeting(
-  groupId: number, // This is correctly typed as number
+  groupId: number,
   meetingData: {
     title: string;
     scheduledFor: Date;
@@ -412,11 +412,10 @@ export async function scheduleMeeting(
     throw new Error("Unauthorized");
   }
 
-  // Convert groupId to number explicitly to ensure it's an integer
   return await prisma.meeting.create({
     data: {
       ...meetingData,
-      groupId: Number(groupId), // Make sure it's converted to a number
+      groupId: groupId,
       createdBy: user.sub,
     },
     include: {
@@ -445,9 +444,6 @@ export async function shareResource(
     throw new Error("Unauthorized");
   }
 
-  // Convert groupId to number explicitly
-  const groupIdAsNumber = Number(groupId);
-
   // Create a file record and a discussion about the resource
   const [file, discussion] = await prisma.$transaction([
     prisma.projectFile.create({
@@ -456,7 +452,7 @@ export async function shareResource(
         url: resource.url,
         type: resource.type,
         size: 0, // Metadata only
-        groupId: groupIdAsNumber, // Use the converted number
+        groupId: groupId,
         isResource: true, // Mark this as a resource
       },
     }),
@@ -468,7 +464,7 @@ export async function shareResource(
           description: resource.description,
           url: resource.url,
         }),
-        groupId: groupIdAsNumber, // Use the converted number
+        groupId: groupId,
       },
     }),
   ]);

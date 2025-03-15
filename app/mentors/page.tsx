@@ -125,6 +125,7 @@ export default function MentorsPage() {
               <div className="relative z-10 p-6">
                 <div className="flex items-center space-x-4 mb-4">
                   {mentor.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={mentor.imageUrl}
                       alt={mentor.name}

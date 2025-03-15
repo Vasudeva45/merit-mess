@@ -11,9 +11,7 @@ import {
   type MentorDetails,
 } from "@/schemas/profile";
 import { EmailService } from "@/actions/emailService";
-import { cache } from "react";
 
-// Custom error classes
 class UserNotFoundErr extends Error {}
 class ValidationError extends Error {
   constructor(public errors: Record<string, string[]>) {
@@ -22,39 +20,20 @@ class ValidationError extends Error {
   }
 }
 
-// Cached authentication
-const getAuthenticatedUser = cache(async () => {
-  const session = await getSession();
-  const user = session?.user;
-
-  if (!user || !user.sub) {
-    throw new UserNotFoundErr();
-  }
-
-  return user;
-});
-
-// Helper to process arrays from form inputs
-const processArrayField = (field: string | string[] | undefined): string[] => {
-  if (Array.isArray(field)) return field;
-  if (!field) return [];
-  return field
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-};
-
-// Cached profile retrieval
-const getUserProfile = cache(async (userId: string) => {
-  return prisma.profile.findUnique({
-    where: { userId },
-  });
-});
-
 export async function getProfile() {
   try {
-    const user = await getAuthenticatedUser();
-    const profile = await getUserProfile(user.sub);
+    const session = await getSession();
+    const user = session?.user;
+
+    if (!user || !user.sub) {
+      throw new UserNotFoundErr();
+    }
+
+    const profile = await prisma.profile.findUnique({
+      where: {
+        userId: user.sub,
+      },
+    });
 
     if (!profile) {
       const defaultProfile: ProfileFormData = {
@@ -88,7 +67,10 @@ export async function getProfile() {
 
     return profile;
   } catch (error) {
-    if (error instanceof UserNotFoundErr || error instanceof ValidationError) {
+    if (error instanceof UserNotFoundErr) {
+      throw error;
+    }
+    if (error instanceof ValidationError) {
       throw error;
     }
     console.error("Error fetching profile:", error);
@@ -98,7 +80,15 @@ export async function getProfile() {
 
 export async function updateProfile(formData) {
   try {
-    const user = await getAuthenticatedUser();
+    const session = await getSession();
+    const user = session?.user;
+
+    if (!user || !user.sub) {
+      throw new Error("User not found");
+    }
+
+    // Log the incoming form data for debugging
+    console.log("Received form data:", formData);
 
     // Ensure email is properly formatted before validation
     const sanitizedFormData = {
@@ -110,6 +100,10 @@ export async function updateProfile(formData) {
     const validation = profileUpdateSchema.safeParse(sanitizedFormData);
 
     if (!validation.success) {
+      console.error(
+        "Validation errors:",
+        validation.error.flatten().fieldErrors
+      );
       throw new ValidationError(validation.error.flatten().fieldErrors);
     }
 
@@ -126,10 +120,22 @@ export async function updateProfile(formData) {
     const updateData = {
       ...otherProfileData,
       type,
-      skills: processArrayField(skills),
+      skills: Array.isArray(skills)
+        ? skills
+        : (skills || "")
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean),
       ongoing_projects: Array.isArray(ongoing_projects) ? ongoing_projects : [],
       mentorExpertise:
-        type === "mentor" ? processArrayField(mentorDetails?.expertise) : [],
+        type === "mentor" && mentorDetails?.expertise
+          ? Array.isArray(mentorDetails.expertise)
+            ? mentorDetails.expertise
+            : mentorDetails.expertise
+                .split(",")
+                .map((e) => e.trim())
+                .filter(Boolean)
+          : [],
       yearsOfExperience:
         type === "mentor"
           ? typeof mentorDetails?.yearsOfExperience === "number"
@@ -141,10 +147,17 @@ export async function updateProfile(formData) {
           ? Boolean(mentorDetails?.availableForMentorship)
           : false,
       certifications:
-        type === "mentor"
-          ? processArrayField(mentorDetails?.certifications)
+        type === "mentor" && mentorDetails?.certifications
+          ? Array.isArray(mentorDetails.certifications)
+            ? mentorDetails.certifications
+            : mentorDetails.certifications
+                .split(",")
+                .map((c) => c.trim())
+                .filter(Boolean)
           : [],
     };
+
+    console.log("Processed update data:", updateData);
 
     // Update the profile
     const updatedProfile = await prisma.profile.upsert({
@@ -156,12 +169,16 @@ export async function updateProfile(formData) {
       },
     });
 
-    // Send email notification asynchronously
-    EmailService.sendProfileUpdateNotification(updatedProfile).catch(
-      (emailError) => {
-        console.error("Email notification error:", emailError);
-      }
-    );
+    console.log("Profile updated successfully:", updatedProfile);
+
+    // Send email notification
+    try {
+      await EmailService.sendProfileUpdateNotification(updatedProfile);
+      console.log("Email notification sent successfully");
+    } catch (emailError) {
+      console.error("Email notification error:", emailError);
+      // Don't throw here - email notification failure shouldn't block profile update
+    }
 
     revalidatePath("/profile");
     return { success: true, data: updatedProfile };
@@ -179,14 +196,15 @@ export async function updateProfile(formData) {
 
 export async function getProfilesByIds(userIds: string[]) {
   try {
-    // If empty array, return early
-    if (!userIds.length) return [];
-
-    return prisma.profile.findMany({
+    const profiles = await prisma.profile.findMany({
       where: {
-        userId: { in: userIds },
+        userId: {
+          in: userIds,
+        },
       },
     });
+
+    return profiles;
   } catch (error) {
     console.error("Error fetching profiles:", error);
     throw new Error("Failed to fetch profiles");
@@ -195,9 +213,13 @@ export async function getProfilesByIds(userIds: string[]) {
 
 export async function getPublicProfile(userId: string) {
   try {
-    // Optimized query that selects only needed fields
+    // Add console.log to debug the userId being received
+    console.log("Fetching profile for userId:", userId);
+
     const profile = await prisma.profile.findUnique({
-      where: { userId },
+      where: {
+        userId: userId,
+      },
       include: {
         submissions: {
           select: {
@@ -223,21 +245,29 @@ export async function getPublicProfile(userId: string) {
           },
         },
         assignedTasks: {
-          where: { status: "completed" },
+          where: {
+            status: "completed",
+          },
           select: {
             title: true,
             description: true,
             group: {
-              select: { name: true },
+              select: {
+                name: true,
+              },
             },
           },
         },
       },
     });
 
-    if (!profile) return null;
+    console.log("Found profile:", profile ? "yes" : "no");
 
-    // Ensure arrays are initialized
+    if (!profile) {
+      console.log("No profile found for userId:", userId);
+      return null;
+    }
+
     return {
       ...profile,
       skills: profile.skills || [],
@@ -252,13 +282,17 @@ export async function getPublicProfile(userId: string) {
 
 export async function getCurrentUserProfile() {
   try {
-    const user = await getAuthenticatedUser();
+    const session = await getSession();
+    const user = session?.user;
 
-    // Optimized query with minimal select
+    if (!user || !user.sub) {
+      throw new UserNotFoundErr();
+    }
+
     const profile = await prisma.profile.findUnique({
       where: { userId: user.sub },
       select: {
-        type: true,
+        type: true, // Only select the type field to minimize data retrieval
         userId: true,
       },
     });

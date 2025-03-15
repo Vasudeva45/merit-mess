@@ -124,8 +124,8 @@ const GithubVerificationModal = ({
                 <p>Please complete ONE of the following:</p>
                 <ul className="list-disc pl-6 space-y-2">
                   <li>
-                    Create a public repository named 'verification-repo' with
-                    this code
+                    Create a public repository named
+                    &apos;verification-repo&apos; with this code
                   </li>
                   <li>Create a public gist containing this code</li>
                   <li>Add this code to your GitHub bio</li>

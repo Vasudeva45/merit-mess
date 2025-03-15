@@ -1,7 +1,7 @@
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Mail, User } from "lucide-react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Mail } from "lucide-react";
 
 export const ProfileServer = ({ user }) => {
   if (!user) {

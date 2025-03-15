@@ -1,23 +1,16 @@
-import React, { useState, useEffect } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { getProfile } from "@/actions/profile";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AnimatePresence } from "framer-motion";
+import { AlertCircle, Github, Loader2, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
-import { getProfile } from "@/actions/profile";
+import { useEffect, useState } from "react";
 import ProfileStepOne from "./ProfileStepOne";
 import ProfileStepTwo from "./ProfileStepTwo";
-import {
-  AlertCircle,
-  ArrowRight,
-  CheckCircle2,
-  Github,
-  Loader2,
-  XCircle,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import GithubSuccessModal from "./verification/GithubSuccessModal";
 
 const PROJECT_STATUS = {
@@ -92,7 +85,7 @@ const GithubVerificationStep = ({
       <XCircle className="h-4 w-4" />
       <AlertTitle>Account Requirements Not Met</AlertTitle>
       <AlertDescription className="space-y-2">
-        <p>Your GitHub account doesn't meet the minimum requirements:</p>
+        <p>Your GitHub account doesn&apos;t meet the minimum requirements:</p>
         <ul className="list-disc pl-4 space-y-1">
           {requirementsCheck.failing.map((fail, index) => (
             <li key={index}>
@@ -289,6 +282,8 @@ const ProfileTypeModal = ({ isOpen, onClose, onTypeSelect, user }) => {
     },
   });
 
+  console.log(githubVerified);
+
   useEffect(() => {
     const loadProfileData = async () => {
       try {
@@ -338,6 +333,7 @@ const ProfileTypeModal = ({ isOpen, onClose, onTypeSelect, user }) => {
   };
 
   const handleGithubVerified = async (result) => {
+    console.log(result);
     setGithubVerified(true);
     // Close modal before navigation
     onClose();

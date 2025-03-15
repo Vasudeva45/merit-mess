@@ -121,7 +121,8 @@ export async function POST(request: NextRequest) {
       }
 
       // Only create/update verification record if all requirements are met
-      const verification = await prisma.MentorVerification.upsert({
+      // Removed the unused verification variable
+      await prisma.MentorVerification.upsert({
         where: { userId: session.user.sub },
         update: {
           githubUsername,
@@ -178,16 +179,20 @@ export async function POST(request: NextRequest) {
       error: "GitHub profile ownership verification failed",
       details: result.details,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("GitHub verification error:", error);
-    return NextResponse.json(
-      { error: error.message || "Verification failed" },
-      { status: 500 }
-    );
+    const errorMessage =
+      error instanceof Error ? error.message : "Verification failed";
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
 
-function checkMinimumRequirements(details: any) {
+function checkMinimumRequirements(details: {
+  accountAge: number;
+  repositories: number;
+  contributions: number;
+  followers: number;
+}) {
   const failing = [];
 
   if (details.accountAge < MINIMUM_REQUIREMENTS.accountAgeInDays) {
@@ -228,7 +233,21 @@ function checkMinimumRequirements(details: any) {
   };
 }
 
-async function processProfileData(profileData: any, userId: string) {
+// Use an interface for profileData
+interface ProfileData {
+  name?: string;
+  email?: string;
+  skills?: string[] | string;
+  achievements?: string[] | string;
+  ongoing_projects?: unknown[];
+  mentorDetails?: {
+    expertise?: string;
+    yearsOfExperience?: string | number;
+    certifications?: string;
+  };
+}
+
+async function processProfileData(profileData: ProfileData, userId: string) {
   return {
     userId,
     type: "mentor",
@@ -252,7 +271,7 @@ async function processProfileData(profileData: any, userId: string) {
       .map((item) => item.trim())
       .filter(Boolean),
     yearsOfExperience:
-      parseInt(profileData.mentorDetails?.yearsOfExperience) || 0,
+      parseInt(String(profileData.mentorDetails?.yearsOfExperience)) || 0,
     certifications: String(profileData.mentorDetails?.certifications || "")
       .split(",")
       .map((item) => item.trim())
@@ -261,7 +280,24 @@ async function processProfileData(profileData: any, userId: string) {
   };
 }
 
-async function createOrUpdateProfile(processedProfile: any, userId: string) {
+interface ProcessedProfile {
+  userId: string;
+  type: string;
+  name?: string;
+  email?: string;
+  skills: string[];
+  achievements: string[];
+  ongoing_projects: unknown[];
+  mentorExpertise: string[];
+  yearsOfExperience: number;
+  certifications: string[];
+  availableForMentorship: boolean;
+}
+
+async function createOrUpdateProfile(
+  processedProfile: ProcessedProfile,
+  userId: string
+) {
   return await prisma.profile.upsert({
     where: { userId },
     update: processedProfile,
